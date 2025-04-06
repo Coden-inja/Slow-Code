@@ -187,6 +187,49 @@
     <!-- Custom Firebase Config and Auth -->
     <script src="static/js/firebase-config.js" defer></script>
     <script src="static/js/auth.js" defer></script>
+
+    <!-- Add styling for the tutorial video -->
+    <style>
+        .tutorial-video-container {
+            position: relative;
+            width: 100%;
+            margin: 0 auto;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+        
+        .tutorial-video {
+            width: 100%;
+            display: block;
+            border-radius: 10px;
+        }
+        
+        @media (min-width: 992px) {
+            /* For desktop, make the video card sticky */
+            .col-lg-4 .card {
+                position: sticky;
+                top: 20px;
+            }
+            
+            /* Adjust height to fit the content */
+            .tutorial-video-container {
+                max-height: 600px;
+            }
+        }
+        
+        /* For mobile phones (9:16 aspect ratio) */
+        @media (max-width: 991.98px) {
+            .tutorial-video-container {
+                max-width: 300px;
+            }
+            
+            /* Add some space above the video card on mobile */
+            .col-lg-4 {
+                margin-top: 1.5rem;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -443,24 +486,33 @@
     <!-- Tutorial Section -->
     <section id="tutorial" class="tutorial-section">
         <div class="container">
-            <div class="row align-items-center">
-
-                <!-- Text Instructions -->
-                <div class="col-lg-6 tutorial-text">
-                    <h2>📸 How to Capture Plant Images</h2>
-                    <ul class="quick-tips">
-                        <li><strong>White background</strong> - Use plain paper for contrast</li>
-                        <li><strong>Good lighting</strong> - Natural light works best</li>
-                        <li><strong>Focus on symptoms</strong> - Show disease spots clearly</li>
-                        <li><strong>Full leaf</strong> - Include the entire leaf</li>
-                        <li><strong>No shadows</strong> - Avoid shadows on the leaf</li>
-                    </ul>
-
-                    <h2>Plant Disease Detection</h2>
-
+            <h2 class="section-title text-center mb-4">Plant Disease Detection</h2>
+            
+            <div class="row">
+                <!-- Image Capture Tips (Full width) -->
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="mb-3">📸 How to Capture Plant Images</h2>
+                            <ul class="quick-tips">
+                                <li><strong>White background</strong> - Use plain paper for contrast</li>
+                                <li><strong>Good lighting</strong> - Natural light works best</li>
+                                <li><strong>Focus on symptoms</strong> - Show disease spots clearly</li>
+                                <li><strong>Full leaf</strong> - Include the entire leaf</li>
+                                <li><strong>No shadows</strong> - Avoid shadows on the leaf</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main content row with detection and video -->
+            <div class="row">
+                <!-- Detection Forms Column -->
+                <div class="col-lg-8 mb-4 mb-lg-0">
                     <!-- Toggle for Online vs. Offline Mode -->
                     <label for="mode-toggle">Choose Mode:</label>
-                    <select id="mode-toggle">
+                    <select id="mode-toggle" class="form-select mb-3">
                         <option value="online">Online Mode (Fast)</option>
                         <option value="offline">Offline Mode (No Internet)</option>
                     </select>
@@ -635,20 +687,22 @@
                     
                     <!-- Result Display Area for Online Mode -->
                     <div id="result" class="mt-4"></div>
-
-
                 </div>
-
-                <!-- Video/Image Guide -->
-                <div class="col-lg-6 tutorial-video">
-                    <div class="tutorial-image-container">
-                        <h3>How It Works</h3>
-                        <div class="tutorial-image">
-                            <img src="static/images/tutorial.jpg" class="img-fluid tutorial-img" alt="Plant Disease Detection">
+                
+                <!-- Tutorial Video Column (Right side on desktop, below on mobile) -->
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 class="card-title mb-3">How It Works</h3>
+                            <div class="tutorial-video-container">
+                                <video class="img-fluid tutorial-video" controls autoplay muted loop>
+                                    <source src="static/video/tutorial.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     </section>

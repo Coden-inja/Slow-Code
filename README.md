@@ -1,27 +1,32 @@
 # AgroDX - Plant Disease Detection System
 
-AgroDX is a comprehensive plant disease detection system that combines image analysis, sensor data, and weather information to help farmers monitor and manage crop health.
+AgroDX is a plant disease detection application that helps farmers identify and manage plant diseases through image analysis. The system now features a robust offline mode and supports both image and text-based disease detection.
 
 ## Features
 
-- **Image-based Disease Detection**: Uses deep learning to identify plant diseases from images
+- **Image-based Disease Detection**: Uses deep learning to identify plant diseases from uploaded photos
+- **Offline Detection**: Full functionality available even without internet connection
 - **Text-based Disease Detection**: Analyze disease symptoms using natural language processing
-- **Field Management Dashboard**: Monitor multiple fields with real-time data
-- **Sensor Integration**: Track environmental conditions with IoT sensors
-- **Weather Integration**: Get weather data for each field location
-- **Disease Alerts**: Receive notifications about potential disease outbreaks
-- **Offline Mode**: Continue using the system without internet connection
-- **Multi-language Support**: Available in multiple languages including Hindi
+- **User-friendly Interface**: Intuitive design for seamless experience
+- **Responsive Design**: Works on desktop and mobile devices
+- **Disease Information**: Provides detailed information about detected diseases
+- **Firebase Authentication**: Optional user account creation for saving detection history
+
+## Technical Capabilities
+
+- Supports 38 different plant/disease combinations
+- Pre-trained model using TensorFlow
+- Client-side inference with TensorFlow.js
+- Automatic model download for offline use
+- High-resolution image processing
+- Confidence display for predictions
 
 ## Prerequisites
 
 - Python 3.8 or higher
-- PostgreSQL database
-- Node.js and npm (for frontend development)
-- Free API keys for:
-  - OpenWeatherMap
-  - Google Maps (optional)
-  - Firebase (for authentication)
+- SQLite database (default) or PostgreSQL (optional)
+- API key for Google Gemini Pro (text-based detection)
+- Firebase setup (optional, for authentication)
 
 ## Installation
 
@@ -42,73 +47,112 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Set up the database:
-```bash
-createdb agrodx
-```
-
-5. Configure environment variables:
+4. Configure environment variables:
 - Copy `.env.example` to `.env`
-- Update the variables with your API keys and configuration
+- Update with your API keys and configuration
 
-6. Initialize the database:
-```bash
-flask db upgrade
-```
-
-## Running the Application
-
-1. Start the Flask development server:
+5. Run the application:
 ```bash
 flask run
 ```
 
-2. Open your browser and navigate to `http://localhost:5000`
+6. Open your browser and navigate to `http://localhost:5000`
+
+## Environment Configuration
+
+The `.env` file is not included in the repository due to security reasons. You'll need to create your own `.env` file in the project root with the following variables:
+
+```
+# Google Gemini API (for text-based disease detection)
+GOOGLE_API_KEY=your_google_api_key_here
+
+# Database Configuration
+DATABASE_URL=sqlite:///instance/agrodx.db  # Default SQLite database
+# Optionally use PostgreSQL:
+# DATABASE_URL=postgresql://username:password@localhost/agrodx
+
+# Secret Key (used by Flask for sessions)
+SECRET_KEY=your_random_secret_key_here
+
+# Firebase Configuration (optional, for authentication)
+FIREBASE_API_KEY=your_firebase_api_key
+FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+FIREBASE_APP_ID=your_firebase_app_id
+FIREBASE_DATABASE_URL=https://your-project.firebaseio.com
+
+# Model Configuration
+MODEL_CONFIDENCE_THRESHOLD=0.4  # Minimum confidence for a valid prediction
+```
+
+To obtain these API keys:
+
+1. **Google Gemini API Key**:
+   - Visit [Google AI Studio](https://makersuite.google.com/)
+   - Create or select a project
+   - Generate an API key from the API section
+
+2. **Firebase Configuration**:
+   - Go to [Firebase Console](https://console.firebase.google.com/)
+   - Create a new project or select an existing one
+   - Navigate to Project Settings
+   - Find the Firebase SDK configuration section
+   - Copy the values into your .env file
+
+Make sure to add the `.env` file to your `.gitignore` to prevent accidentally committing your secret keys to version control.
 
 ## Project Structure
 
 ```
 agrodx/
 ├── app.py              # Main Flask application
-├── config.py           # Configuration settings
+├── main.py             # Model prediction functions
+├── llm.py              # Text-based detection using Gemini Pro
+├── simple_convert.py   # Model conversion for TensorFlow.js
 ├── models.py           # Database models
+├── config.py           # Configuration settings
+├── dashboard.py        # Dashboard functionality
 ├── sensor_utils.py     # Sensor and weather utilities
-├── dashboard.py        # Dashboard routes
-├── main.py            # Core disease detection logic
-├── llm.py             # Text-based detection
-├── convert_model.py   # Model conversion utilities
-├── static/            # Static files
+├── static/
 │   ├── css/
 │   ├── js/
-│   └── uploads/
-├── templates/         # HTML templates
-├── input_folder/      # Temporary upload directory
-└── requirements.txt   # Python dependencies
+│   ├── model/          # TensorFlow.js model files
+│   └── uploads/        # Image upload directory
+├── templates/          # HTML templates
+├── input_folder/       # Test image directory
+└── requirements.txt    # Python dependencies
 ```
 
-## Free/Low-Cost Components
+## Dependencies
 
-- **Database**: PostgreSQL (free, open source)
-- **Maps**: OpenStreetMap (free)
-- **Weather**: OpenWeatherMap API (free tier)
-- **Authentication**: Firebase Auth (free tier)
-- **Hosting**: Railway/Render (free tier)
-- **Storage**: Firebase Storage (free tier)
-- **CI/CD**: GitHub Actions (free for public repos)
+- **Backend**:
+  - Flask (Web framework)
+  - TensorFlow/TensorFlow.js (Model inference)
+  - Google Generative AI (Text-based detection)
+  - SQLAlchemy (Database ORM)
+
+- **Frontend**:
+  - TensorFlow.js (Client-side inference)
+  - Firebase (Authentication)
+  - Bootstrap 5 (Styling)
+
+## Offline Functionality
+
+The application provides complete offline functionality:
+1. The TensorFlow.js model is automatically downloaded on first visit
+2. All disease detection can be performed entirely client-side
+3. No internet connection required after initial setup
 
 ## Development
 
 1. Install development dependencies:
 ```bash
-pip install -r requirements-dev.txt
+pip install pytest black
 ```
 
-2. Run tests:
-```bash
-pytest
-```
-
-3. Format code:
+2. Format code:
 ```bash
 black .
 ```
@@ -129,9 +173,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - Plant Village dataset for disease images
 - TensorFlow.js for client-side model inference
-- OpenStreetMap contributors for map data
-- All contributors and maintainers
-
-## Support
-
-For support, please open an issue in the GitHub repository or contact the maintainers. 
+- All contributors and maintainers 

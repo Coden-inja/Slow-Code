@@ -243,6 +243,31 @@
             border-radius: 8px;
             border-left: 3px solid #0d6efd;
         }
+        /* Add text wrapping styles to prevent horizontal scrolling */
+        .disease-name, .disease-description, .treatment-section, .prevention-section, .references-section {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            hyphens: auto;
+            max-width: 100%;
+        }
+        
+        /* Make sure all content stays within the viewport */
+        .container {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        /* Additional mobile-specific styles */
+        @media (max-width: 767.98px) {
+            h5.disease-name {
+                font-size: 1.15rem;
+            }
+            
+            .prediction-box {
+                padding: 1rem;
+            }
+        }
     </style>
 </head>
 <body>
