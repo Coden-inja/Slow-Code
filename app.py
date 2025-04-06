@@ -1,7 +1,17 @@
 from flask import Flask, render_template, request, redirect, flash, jsonify, send_from_directory, send_file, url_for
 import os
 import mimetypes  # Add mimetype support for proper content type headers
-from main import model_prediction, TENSORFLOW_AVAILABLE  # Image-based disease detection function
+
+# Try to import TensorFlow-dependent modules but handle the case when they're not available
+try:
+    from main import model_prediction, TENSORFLOW_AVAILABLE  # Image-based disease detection function
+except ImportError:
+    # Define fallbacks when TensorFlow is not available
+    def model_prediction(filepath):
+        return -1  # Return error code
+    TENSORFLOW_AVAILABLE = False
+    print("TensorFlow not available - running in limited mode")
+
 from llm import detect_disease  # Text-based disease detection function
 import json
 import requests
@@ -14,6 +24,8 @@ from werkzeug.utils import secure_filename
 import traceback
 from datetime import datetime, timedelta
 from dashboard import dashboard  # Import the dashboard Blueprint
+import math
+import random
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -106,6 +118,11 @@ def home():
     
     return render_template('index.html', firebase_config=firebase_config)
 
+# About Page Route
+@app.route('/about')
+def about():
+    return render_template('about.html')
+
 # Route to handle image-based disease detection
 @app.route('/upload', methods=['POST'])
 def upload_image():
@@ -159,6 +176,17 @@ def upload_image():
             
             print(f"Prediction: {disease_name}, No exact confidence available")
             
+            # Try to get additional info from LLM API for a richer response
+            detailed_result = None
+            try:
+                # Use the LLM-based detection to get more detailed information
+                detailed_prompt = f"Provide information about the plant disease: {disease_name}"
+                detailed_result = detect_disease(detailed_prompt)
+                print(f"Got detailed information for {disease_name}")
+            except Exception as e:
+                print(f"Could not get detailed disease information: {e}")
+                traceback.print_exc()
+            
             # Store the field_id if provided (for logged in users)
             field_id = request.form.get('field_id')
             
@@ -188,7 +216,8 @@ def upload_image():
             return render_template('result.html', 
                                   prediction=disease_name,
                                   confidence=confidence,
-                                  image_path=filename)
+                                  image_path=filename,
+                                  result=detailed_result)  # Pass the detailed results from LLM
                                   
         except Exception as e:
             print(f"Error processing image: {e}")
@@ -285,14 +314,6 @@ def download_model():
     for client-side inference without creating a zip file
     """
     try:
-        # Import the conversion function and try high-accuracy conversion
-        from convert_model import convert_model
-        
-        # Run the conversion process
-        success = convert_model()
-        if not success:
-            return jsonify({"error": "Could not convert model. Check server logs."}), 500
-        
         # Redirect to the model.json file
         return jsonify({
             "success": True,
@@ -350,39 +371,51 @@ def fix_model_json_format(model_json):
     
     return fixed_json
 
-# Route to serve the TensorFlow.js model files
+# Route to serve model files
 @app.route('/static/model/<path:filename>')
-def serve_model_files(filename):
-    try:
-        # Check if the directory exists
-        model_dir = os.path.join('static', 'model')
-        if not os.path.exists(model_dir):
-            os.makedirs(model_dir, exist_ok=True)
-            return "", 404
-            
-        # Validate the request path
-        if not filename.startswith('model') and not filename.endswith('.bin'):
-            return "", 403
-            
-        # If we're requesting model.json, ensure it has the correct format
-        if filename == 'model.json' and os.path.exists(os.path.join(model_dir, filename)):
-            with open(os.path.join(model_dir, filename), 'r') as f:
-                model_json = json.load(f)
-            
-            # Fix format issues (ensure all keys are in proper snake_case format)
-            model_json = fix_model_json_format(model_json)
-            
-            # Return the fixed model.json
-            return jsonify(model_json)
-        
-        # Serve model files from the 'static/model' directory
-        if os.path.exists(os.path.join(model_dir, filename)):
-            return send_from_directory('static/model', filename)
-        else:
-            return "", 404
-    except Exception as e:
-        print(f"Error serving model file: {str(e)}")
-        return "", 500
+def serve_model(filename):
+    """Explicitly serve files from the model directory"""
+    return send_from_directory(os.path.join(app.root_path, 'static', 'model'), filename)
+
+# Route to serve binary model weight files
+@app.route('/static/model/tfjs_model/weights/<path:filename>')
+def serve_model_weights(filename):
+    """Serve binary weight files with correct MIME type"""
+    weights_path = os.path.join(app.root_path, 'static', 'model', 'tfjs_model', 'weights')
+    # Use application/octet-stream for binary files
+    return send_from_directory(weights_path, filename, mimetype='application/octet-stream')
+
+# Special route for metadata.json with correct MIME type
+@app.route('/static/model/metadata.json')
+def serve_metadata():
+    """Explicitly serve metadata.json with correct MIME type"""
+    return send_from_directory(
+        os.path.join(app.root_path, 'static', 'model'), 
+        'metadata.json', 
+        mimetype='application/json'
+    )
+
+# Special route for classes.json with correct MIME type
+@app.route('/static/model/classes.json')
+def serve_classes():
+    """Explicitly serve classes.json with correct MIME type"""
+    return send_from_directory(
+        os.path.join(app.root_path, 'static', 'model'), 
+        'classes.json', 
+        mimetype='application/json'
+    )
+
+# Route to serve nested model files in tfjs_model directory
+@app.route('/static/model/tfjs_model/<path:filename>')
+def serve_tfjs_model(filename):
+    """Explicitly serve files from the tfjs_model directory"""
+    return send_from_directory(os.path.join(app.root_path, 'static', 'model', 'tfjs_model'), filename)
+
+# Route to serve nested model files in saved_model directory
+@app.route('/static/model/saved_model/<path:filename>')
+def serve_saved_model(filename):
+    """Explicitly serve files from the saved_model directory"""
+    return send_from_directory(os.path.join(app.root_path, 'static', 'model', 'saved_model'), filename)
 
 # Status route to check if TensorFlow is available
 @app.route('/status')
@@ -868,8 +901,41 @@ def weather_api(field_id):
             3: "Delhi, NCR"
         }
         
-        # Vary temperature based on field ID
+        # Get current hour to determine temperature pattern
+        current_hour = datetime.now().hour
+        
+        # Vary base temperature based on field ID
         base_temp = 24.5 + (field_id * 2)
+        
+        # Create a realistic 24-hour temperature forecast
+        forecast = []
+        for i in range(1, 25):  # Full 24 hours
+            hour = (current_hour + i) % 24  # Hour of day (0-23)
+            
+            # Temperature variation follows a sine curve to simulate day/night cycle
+            # Lowest at around 4am, highest at around 2pm
+            temp_variation = 5 * math.sin(math.pi * ((hour - 4) % 24) / 12)
+            
+            # Add some randomness
+            random_factor = random.uniform(-0.5, 0.5)
+            
+            # Calculate temperature for this hour
+            temp = base_temp + temp_variation + random_factor
+            
+            # Determine icon based on time of day and field
+            if 6 <= hour < 18:  # Daytime
+                icons = ['01d', '02d', '03d', '04d', '10d']  # Day icons
+            else:  # Nighttime
+                icons = ['01n', '02n', '03n', '04n', '10n']  # Night icons
+                
+            # Select icon with some variation based on field_id
+            icon_index = (field_id + i) % len(icons)
+            
+            forecast.append({
+                'time': (datetime.now() + timedelta(hours=i)).isoformat(),
+                'temp': round(temp, 1),
+                'icon': icons[icon_index]
+            })
         
         weather_data = {
             'success': True,
@@ -881,28 +947,7 @@ def weather_api(field_id):
                 'wind_speed': 10 + (field_id * 2),
                 'description': ['partly cloudy', 'sunny', 'light rain'][field_id % 3],
                 'icon': ['02d', '01d', '10d'][field_id % 3],
-                'forecast': [
-                    {
-                        'time': (datetime.now() + timedelta(hours=3)).isoformat(),
-                        'temp': base_temp - 1,
-                        'icon': ['01d', '02d', '03d'][field_id % 3]
-                    },
-                    {
-                        'time': (datetime.now() + timedelta(hours=6)).isoformat(),
-                        'temp': base_temp - 2,
-                        'icon': ['02d', '03d', '04d'][field_id % 3]
-                    },
-                    {
-                        'time': (datetime.now() + timedelta(hours=9)).isoformat(),
-                        'temp': base_temp - 3,
-                        'icon': ['03n', '04n', '10n'][field_id % 3]
-                    },
-                    {
-                        'time': (datetime.now() + timedelta(hours=12)).isoformat(),
-                        'temp': base_temp - 3.5,
-                        'icon': ['04n', '03n', '02n'][field_id % 3]
-                    }
-                ]
+                'forecast': forecast
             }
         }
         return jsonify(weather_data)

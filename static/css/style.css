@@ -208,6 +208,15 @@ main {
     background-color: #28a745;
 }
 
+/* Fix for blue tab text */
+.nav-tabs .nav-link {
+    color: #333 !important;
+}
+
+.nav-tabs .nav-link.active {
+    font-weight: 600;
+}
+
 .image-box {
     margin-bottom: 20px;
     text-align: center;
@@ -699,4 +708,81 @@ main {
     .card {
         margin-bottom: 1rem;
     }
+}
+
+/* Mode Toggle Card Styling */
+#mode-toggle {
+    margin-bottom: 20px;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+    width: 100%;
+    max-width: 300px;
+}
+
+/* Card styling for both online and offline modes */
+#online-mode .card, #offline-mode .card {
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border: 1px solid #e0e0e0;
+    overflow: hidden;
+}
+
+#online-mode .card:hover, #offline-mode .card:hover {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-3px);
+}
+
+#online-mode .card-body, #offline-mode .card-body {
+    padding: 1.5rem;
+}
+
+#online-mode h4, #offline-mode h4 {
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 1.2rem;
+    font-size: 1.25rem;
+}
+
+/* Image preview styling */
+#image-preview, #offline-image-preview {
+    text-align: center;
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+/* Result area styling */
+#result-area, #result {
+    margin-top: 1rem;
+    transition: all 0.3s ease;
+}
+
+/* Success card styling for results */
+.card-header.bg-success {
+    background-color: #28a745 !important;
+    color: white;
+    font-weight: 500;
+}
+
+/* Alert styling */
+.alert-info {
+    background-color: #e8f4f8;
+    border-color: #d1ecf1;
+    color: #0c5460;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+/* Button styling */
+.btn-success, .btn-primary {
+    border-radius: 4px;
+    font-weight: 500;
+    transition: all 0.2s ease;
 }

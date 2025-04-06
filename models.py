@@ -1,6 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
-from datetime import datetime
+from datetime import datetime, timezone
 
 db = SQLAlchemy()
 
@@ -11,7 +11,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128))
     firebase_uid = db.Column(db.String(128), unique=True, nullable=True)  # Firebase User ID
     role = db.Column(db.String(20), default='user')  # user, admin, researcher
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Field(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -21,7 +21,7 @@ class Field(db.Model):
     longitude = db.Column(db.Float)
     area = db.Column(db.Float)  # in acres
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Sensor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -35,7 +35,7 @@ class SensorReading(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sensor_id = db.Column(db.Integer, db.ForeignKey('sensor.id'), nullable=False)
     value = db.Column(db.Float, nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 class DiseaseDetection(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -45,7 +45,7 @@ class DiseaseDetection(db.Model):
     image_path = db.Column(db.String(200))
     latitude = db.Column(db.Float)
     longitude = db.Column(db.Float)
-    detected_at = db.Column(db.DateTime, default=datetime.utcnow)
+    detected_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     status = db.Column(db.String(20), default='active')  # active, resolved, false_positive
     treatment_notes = db.Column(db.Text)
     weather_conditions = db.Column(db.Text)  # JSON stored as text for SQLite compatibility 

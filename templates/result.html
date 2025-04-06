@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Plant Disease Detection Result</title>
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="/static/css/style.css">
+    <!-- jQuery (required for consistency) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Google Translate API -->
     <script type="text/javascript">
         function googleTranslateElementInit() {
@@ -248,6 +253,27 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="#">AgroDx</a>
+            
+            <!-- Mobile-only buttons that are always visible -->
+            <div class="d-flex d-lg-none order-lg-last mobile-nav-buttons">
+                <!-- Language selector for mobile -->
+                <div class="dropdown me-2">
+                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" 
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-language"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('en')">English</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('hi')">हिन्दी</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('bn')">বাংলা</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('te')">తెలుగు</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('ta')">தமிழ்</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('mr')">मराठी</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('gu')">ગુજરાતી</a></li>
+                    </ul>
+                </div>
+            </div>
+            
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -289,33 +315,22 @@
             </div>
         </div>
     </nav>
-    
-    <!-- Language Selector for Mobile (visible in collapsed menu) -->
-    <div class="d-lg-none bg-dark py-2 px-3">
-        <div class="language-selector-mobile">
-            <button class="btn btn-outline-light btn-sm dropdown-toggle w-100" type="button" 
-                    data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="fas fa-language"></i>
-                <span id="currentLanguageMobile">Language</span>
-            </button>
-            <ul class="dropdown-menu w-100" aria-labelledby="translateBtnMobile">
-                <li><a class="dropdown-item" href="#" onclick="translatePage('en')">English</a></li>
-                <li><a class="dropdown-item" href="#" onclick="translatePage('hi')">हिन्दी (Hindi)</a></li>
-                <li><a class="dropdown-item" href="#" onclick="translatePage('bn')">বাংলা (Bengali)</a></li>
-                <li><a class="dropdown-item" href="#" onclick="translatePage('te')">తెలుగు (Telugu)</a></li>
-                <li><a class="dropdown-item" href="#" onclick="translatePage('ta')">தமிழ் (Tamil)</a></li>
-                <li><a class="dropdown-item" href="#" onclick="translatePage('mr')">मराठी (Marathi)</a></li>
-                <li><a class="dropdown-item" href="#" onclick="translatePage('gu')">ગુજરાતી (Gujarati)</a></li>
-                <li><a class="dropdown-item" href="#" onclick="translatePage('kn')">ಕನ್ನಡ (Kannada)</a></li>
-                <li><a class="dropdown-item" href="#" onclick="translatePage('ml')">മലയാളം (Malayalam)</a></li>
-                <li><a class="dropdown-item" href="#" onclick="translatePage('pa')">ਪੰਜਾਬੀ (Punjabi)</a></li>
-                <li><a class="dropdown-item" href="#" onclick="translatePage('or')">ଓଡ଼ିଆ (Odia)</a></li>
-            </ul>
-        </div>
-    </div>
 
+    <!-- Result Display -->
     <div class="container result-container">
         <h1 class="result-header text-center">Plant Disease Detection Results</h1>
+        
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
         
         <div class="row">
             {% if uploaded_text %}
@@ -394,84 +409,40 @@
                         <div class="result">
                             <h5 class="disease-name mb-3">Disease: {{ prediction }}</h5>
                             
-                            <div class="confidence-section mb-3">
-                                <h6><i class="fas fa-percentage me-2"></i>Confidence:</h6>
-                                {% if confidence is none %}
-                                <div class="alert alert-info">
-                                    <i class="fas fa-info-circle me-2"></i> Model does not provide confidence scores for predictions.
-                                </div>
-                                {% else %}
-                                <div class="progress mb-2">
-                                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ (confidence * 100)|int }}%" aria-valuenow="{{ (confidence * 100)|int }}" aria-valuemin="0" aria-valuemax="100">{{ (confidence * 100)|int }}%</div>
-                                </div>
-                                {% endif %}
-                            </div>
-                            
-                            <div class="treatment-section mb-3">
-                                <h6><i class="fas fa-prescription-bottle me-2"></i>Possible Treatments:</h6>
-                                {% if 'Uncertain' in prediction or 'Error' in prediction %}
-                                <div class="alert alert-warning">
-                                    <i class="fas fa-exclamation-triangle me-2"></i> Cannot provide treatment recommendations when diagnosis is uncertain.
-                                </div>
-                                {% else %}
-                                <ul>
-                                    {% if 'Blight' in prediction %}
-                                        <li>Apply copper-based fungicides every 7-10 days</li>
-                                        <li>Ensure proper plant spacing for air circulation</li>
-                                        <li>Remove and destroy infected plant parts</li>
-                                    {% elif 'Bacterial' in prediction %}
-                                        <li>Apply copper-based bactericides</li>
-                                        <li>Maintain dry foliage through drip irrigation</li>
-                                        <li>Practice crop rotation with non-susceptible crops</li>
-                                    {% elif 'Rust' in prediction %}
-                                        <li>Apply sulfur or copper-based fungicides</li>
-                                        <li>Remove infected leaves and destroy them</li>
-                                        <li>Increase plant spacing to improve air circulation</li>
-                                    {% elif 'Powdery' in prediction %}
-                                        <li>Apply neem oil or potassium bicarbonate sprays</li>
-                                        <li>Use sulfur-based fungicides as preventative measure</li>
-                                        <li>Avoid overhead watering to keep foliage dry</li>
-                                    {% elif 'Yellow' in prediction or 'Curl' in prediction %}
-                                        <li>Remove and destroy infected plants</li>
-                                        <li>Control whitefly populations with appropriate insecticides</li>
-                                        <li>Use reflective mulches to repel insect vectors</li>
-                                    {% elif 'Leaf_Mold' in prediction %}
-                                        <li>Improve greenhouse ventilation</li>
-                                        <li>Apply fungicides containing chlorothalonil or mancozeb</li>
-                                        <li>Reduce leaf wetness by avoiding overhead irrigation</li>
-                                    {% elif 'Spot' in prediction %}
-                                        <li>Apply fungicides containing chlorothalonil or copper</li>
-                                        <li>Practice crop rotation</li>
-                                        <li>Remove and destroy infected plant material</li>
-                                    {% elif 'healthy' in prediction.lower() %}
-                                        <li>Continue regular monitoring</li>
-                                        <li>Maintain good agricultural practices</li>
-                                        <li>Apply preventative treatments during high-risk periods</li>
-                                    {% else %}
-                                        <li>Consult a local agricultural extension office</li>
-                                        <li>Remove infected plant parts</li>
-                                        <li>Apply appropriate fungicides/bactericides as recommended</li>
+                            {% if result %}
+                                {% set sections = result.split('\n\n') %}
+                                {% for section in sections %}
+                                    {% if "Disease:" in section %}
+                                        <!-- Skip the disease name as we already display it above -->
+                                    {% elif "Description:" in section %}
+                                        <div class="disease-description mb-3">
+                                            <p>{{ section }}</p>
+                                        </div>
+                                    {% elif "Treatment:" in section %}
+                                        <div class="treatment-section mb-3">
+                                            <h5><i class="fas fa-prescription-bottle me-2"></i>Treatment Options</h5>
+                                            {{ section | replace("Treatment:", "") | safe }}
+                                        </div>
+                                    {% elif "Prevention:" in section %}
+                                        <div class="prevention-section mb-3">
+                                            <h5><i class="fas fa-shield-alt me-2"></i>Prevention Measures</h5>
+                                            {{ section | replace("Prevention:", "") | safe }}
+                                        </div>
+                                    {% elif "References:" in section %}
+                                        <div class="references-section mb-3">
+                                            <h5><i class="fas fa-book me-2"></i>References</h5>
+                                            <div class="references-content small">
+                                                {{ section | replace("References:", "") | safe }}
+                                            </div>
+                                        </div>
                                     {% endif %}
-                                </ul>
-                                {% endif %}
-                            </div>
-                            
-                            <div class="prevention-section mb-3">
-                                <h6><i class="fas fa-shield-alt me-2"></i>Prevention Measures:</h6>
-                                {% if 'Uncertain' in prediction or 'Error' in prediction %}
+                                {% endfor %}
+                            {% else %}
                                 <div class="alert alert-warning">
-                                    <i class="fas fa-exclamation-triangle me-2"></i> Cannot provide specific prevention measures when diagnosis is uncertain.
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    No detailed information available for this disease.
                                 </div>
-                                {% else %}
-                                <ul>
-                                    <li>Use disease-resistant varieties when available</li>
-                                    <li>Practice crop rotation to prevent pathogen buildup</li>
-                                    <li>Ensure proper spacing between plants for good air circulation</li>
-                                    <li>Water at the base of plants to keep foliage dry</li>
-                                    <li>Sanitize garden tools between uses</li>
-                                </ul>
-                                {% endif %}
-                            </div>
+                            {% endif %}
                         </div>
                     {% elif result %}
                         <div class="result">
@@ -515,36 +486,35 @@
                 </div>
             </div>
             {% endif %}
+            
+            <div class="next-steps">
+                <h4 class="steps-title"><i class="fas fa-clipboard-list me-2"></i>Next Steps</h4>
                 
-                <div class="next-steps">
-                    <h4 class="steps-title"><i class="fas fa-clipboard-list me-2"></i>Next Steps</h4>
-                    
-                    <div class="step-item">
-                        <span class="step-icon"><i class="fas fa-search"></i></span>
-                        <div>
-                            <strong>Research:</strong> Learn more about the detected disease and its treatments
-                        </div>
+                <div class="step-item">
+                    <span class="step-icon"><i class="fas fa-search"></i></span>
+                    <div>
+                        <strong>Research:</strong> Learn more about the detected disease and its treatments
                     </div>
-                    
-                    <div class="step-item">
-                        <span class="step-icon"><i class="fas fa-user-md"></i></span>
-                        <div>
-                            <strong>Consult Agricultural Expert:</strong> Get professional advice specific to your crop and region
-                        </div>
+                </div>
+                
+                <div class="step-item">
+                    <span class="step-icon"><i class="fas fa-user-md"></i></span>
+                    <div>
+                        <strong>Consult Agricultural Expert:</strong> Get professional advice specific to your crop and region
                     </div>
-                    
-                    <div class="step-item">
-                        <span class="step-icon"><i class="fas fa-prescription-bottle"></i></span>
-                        <div>
-                            <strong>Treatment:</strong> Apply appropriate treatments as recommended by experts
-                        </div>
+                </div>
+                
+                <div class="step-item">
+                    <span class="step-icon"><i class="fas fa-prescription-bottle"></i></span>
+                    <div>
+                        <strong>Treatment:</strong> Apply appropriate treatments as recommended by experts
                     </div>
-                    
-                    <div class="step-item">
-                        <span class="step-icon"><i class="fas fa-seedling"></i></span>
-                        <div>
-                            <strong>Prevention:</strong> Take preventive measures to avoid future infections
-                        </div>
+                </div>
+                
+                <div class="step-item">
+                    <span class="step-icon"><i class="fas fa-seedling"></i></span>
+                    <div>
+                        <strong>Prevention:</strong> Take preventive measures to avoid future infections
                     </div>
                 </div>
             </div>

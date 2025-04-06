@@ -280,10 +280,15 @@ function createWeatherChart(forecast) {
     // Prepare data
     const labels = forecast.map(period => {
         const date = new Date(period.time);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        // Format as hour with AM/PM
+        return date.toLocaleTimeString([], { hour: 'numeric', hour12: true });
     });
     
-    const temperatures = forecast.map(period => Math.round(period.temp));
+    const temperatures = forecast.map(period => period.temp);
+    
+    // Find temperature range to set axis limits
+    const minTemp = Math.min(...temperatures) - 1;
+    const maxTemp = Math.max(...temperatures) + 1;
     
     // Create chart
     window.weatherChart = new Chart(ctx, {
@@ -302,18 +307,70 @@ function createWeatherChart(forecast) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
                     position: 'top',
+                    labels: {
+                        boxWidth: 12,
+                        font: {
+                            size: 11
+                        }
+                    }
                 },
                 tooltip: {
                     mode: 'index',
                     intersect: false,
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            // Format the date for tooltip
+                            const date = new Date(forecast[tooltipItems[0].dataIndex].time);
+                            return date.toLocaleString([], {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                            });
+                        }
+                    }
                 }
             },
             scales: {
                 y: {
                     beginAtZero: false,
+                    suggestedMin: minTemp,
+                    suggestedMax: maxTemp,
+                    title: {
+                        display: true,
+                        text: 'Temperature (°C)',
+                        font: {
+                            size: 10
+                        }
+                    },
+                    ticks: {
+                        font: {
+                            size: 10
+                        }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: '24-Hour Forecast',
+                        font: {
+                            size: 10
+                        }
+                    },
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45,
+                        autoSkip: true,
+                        maxTicksLimit: 8,
+                        font: {
+                            size: 9
+                        }
+                    }
                 }
             }
         }

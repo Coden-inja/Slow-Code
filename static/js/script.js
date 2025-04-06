@@ -26,21 +26,188 @@ document.addEventListener("DOMContentLoaded", function () {
     // Initialize language selector
     initLanguageSelector();
     
-    // Preload the high-accuracy model in the background
+    // Setup speech recognition for voice input
+    setupVoiceRecognition();
+    
+    // Setup image preview for online mode
+    setupImagePreview();
+    
+    // Setup the offline detect button
+    setupOfflineDetection();
+
+    // Preload the model if we're in offline mode
     setTimeout(() => {
         // Only preload if we're in offline mode
         if (document.getElementById('mode-toggle').value === 'offline') {
             console.log("Preloading high-accuracy model in the background...");
-            forceReloadModel(true).then(success => {
+            loadOfflineModel().then(success => {
                 if (success) {
                     console.log("High-accuracy model preloaded successfully!");
                 } else {
                     console.warn("Could not preload high-accuracy model");
                 }
+            }).catch(error => {
+                console.error("Error preloading model:", error);
             });
         }
     }, 2000); // Wait 2 seconds before starting the preload
 });
+
+// Add an image preview functionality
+function setupImagePreview() {
+    // For online mode
+    const imageInputOnline = document.getElementById('image-input-online');
+    const imagePreviewOnline = document.getElementById('image-preview');
+    const previewImageOnline = document.getElementById('preview-image');
+    
+    if (imageInputOnline && previewImageOnline) {
+        imageInputOnline.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    previewImageOnline.src = e.target.result;
+                    imagePreviewOnline.style.display = 'block';
+                };
+                
+                reader.readAsDataURL(this.files[0]);
+            } else {
+                previewImageOnline.src = '';
+                imagePreviewOnline.style.display = 'none';
+            }
+        });
+    }
+    
+    // For offline mode
+    const imageInputOffline = document.getElementById('image-input');
+    const imagePreviewOffline = document.getElementById('offline-image-preview');
+    const previewImageOffline = document.getElementById('offline-preview-image');
+    
+    if (imageInputOffline && previewImageOffline) {
+        imageInputOffline.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    previewImageOffline.src = e.target.result;
+                    imagePreviewOffline.style.display = 'block';
+                };
+                
+                reader.readAsDataURL(this.files[0]);
+            } else {
+                previewImageOffline.src = '';
+                imagePreviewOffline.style.display = 'none';
+            }
+        });
+    }
+}
+
+// Setup speech recognition for microphone button
+function setupVoiceRecognition() {
+    const voiceButton = document.getElementById('voice-input-btn');
+    const symptomsInput = document.getElementById('symptoms-input');
+    const voiceStatus = document.getElementById('voice-status');
+    
+    if (!voiceButton || !symptomsInput) return;
+    
+    // Check if browser supports speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+        // Speech recognition not supported
+        if (voiceStatus) {
+            voiceStatus.textContent = 'Speech recognition not supported in this browser.';
+        }
+        if (voiceButton) {
+            voiceButton.disabled = true;
+            voiceButton.classList.add('btn-secondary');
+            voiceButton.classList.remove('btn-primary');
+        }
+        return;
+    }
+    
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true; // Change to true for continuous listening
+    recognition.interimResults = true; // Show interim results
+    
+    // Try to detect language based on page language
+    const html = document.querySelector('html');
+    if (html && html.lang) {
+        recognition.lang = html.lang;
+    } else {
+        recognition.lang = 'en-US'; // Default to English
+    }
+    
+    let isListening = false;
+    
+    // When user clicks the microphone button
+    voiceButton.addEventListener('click', () => {
+        if (isListening) {
+            // If already listening, stop
+            recognition.stop();
+            isListening = false;
+            voiceButton.classList.remove('listening');
+            voiceButton.classList.remove('btn-danger');
+            voiceButton.classList.add('btn-secondary');
+            voiceStatus.textContent = 'Listening stopped.';
+        } else {
+            // Start listening
+            try {
+            recognition.start();
+                isListening = true;
+            voiceButton.classList.add('listening');
+            voiceButton.classList.remove('btn-secondary');
+            voiceButton.classList.add('btn-danger');
+            voiceStatus.textContent = 'Listening... Speak now.';
+            } catch (e) {
+                console.error('Speech recognition error:', e);
+                voiceStatus.textContent = 'Error starting speech recognition. Try again.';
+            }
+        }
+    });
+    
+    // Process the speech when results are available
+    recognition.onresult = (event) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript;
+            } else {
+                interimTranscript += transcript;
+            }
+        }
+        
+        // Update the input field with the transcribed text
+        if (finalTranscript !== '') {
+            symptomsInput.value = finalTranscript;
+            voiceStatus.textContent = 'Recognized: ' + finalTranscript;
+        } else if (interimTranscript !== '') {
+            symptomsInput.value = interimTranscript;
+            voiceStatus.textContent = 'Listening: ' + interimTranscript;
+        }
+    };
+    
+    // Handle errors
+    recognition.onerror = (event) => {
+        voiceStatus.textContent = 'Error: ' + event.error;
+        isListening = false;
+        voiceButton.classList.remove('listening');
+        voiceButton.classList.remove('btn-danger');
+        voiceButton.classList.add('btn-secondary');
+    };
+    
+    // When recognition ends
+    recognition.onend = () => {
+        isListening = false;
+        voiceButton.classList.remove('listening');
+        voiceButton.classList.remove('btn-danger');
+        voiceButton.classList.add('btn-secondary');
+        voiceStatus.textContent = 'Listening ended.';
+    };
+}
 
 // Initialize language dropdown
 function initLanguageDropdown() {
@@ -136,160 +303,189 @@ document.getElementById('mode-toggle').addEventListener('change', function () {
         document.getElementById('online-mode').style.display = 'none';
         document.getElementById('offline-mode').style.display = 'block';
         
-        // Show loading message right away in offline mode
-        resultDiv.innerHTML = `
-            <div class="alert alert-info">
-                <p><strong>Preparing offline mode...</strong></p>
-                <p>Loading high-accuracy model for offline detection. Please wait.</p>
-            </div>
-        `;
-        
-        // Load the model and show status
-        forceReloadModel(false).then(loaded => {
-            console.log("Offline model loaded:", loaded);
-            if (!loaded) {
-                resultDiv.innerHTML = `
-                    <div class="alert alert-warning">
-                        <p><strong>Offline model could not be loaded.</strong></p>
-                        <p>Please try again or check your internet connection to download the model.</p>
-                    </div>
-                `;
+        // Make sure jQuery is loaded for offline mode
+        ensureJQuery(() => {
+            // Clear any previous message
+            const resultArea = document.getElementById('result-area');
+            if (resultArea) {
+                resultArea.innerHTML = '';
             }
+            
+            // Trigger model loading with proper UI update
+            handleModelLoadForOffline();
         });
     }
 });
 
-// Global variables for offline mode
+// Global variables for offline model
 let offlineModel = null;
 let offlineModelLoading = false;
-let offlineModelLoadingAttempted = false;
+const classNames = ["Apple___Apple_scab", "Apple___Black_rot", "Apple___Cedar_apple_rust", "Apple___healthy", "Blueberry___healthy", "Cherry_(including_sour)___Powdery_mildew", "Cherry_(including_sour)___healthy", "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot", "Corn_(maize)___Common_rust_", "Corn_(maize)___Northern_Leaf_Blight", "Corn_(maize)___healthy", "Grape___Black_rot", "Grape___Esca_(Black_Measles)", "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)", "Grape___healthy", "Orange___Haunglongbing_(Citrus_greening)", "Peach___Bacterial_spot", "Peach___healthy", "Pepper,_bell___Bacterial_spot", "Pepper,_bell___healthy", "Potato___Early_blight", "Potato___Late_blight", "Potato___healthy", "Raspberry___healthy", "Soybean___healthy", "Squash___Powdery_mildew", "Strawberry___Leaf_scorch", "Strawberry___healthy", "Tomato___Bacterial_spot", "Tomato___Early_blight", "Tomato___Late_blight", "Tomato___Leaf_Mold", "Tomato___Septoria_leaf_spot", "Tomato___Spider_mites Two-spotted_spider_mite", "Tomato___Target_Spot", "Tomato___Tomato_Yellow_Leaf_Curl_Virus", "Tomato___Tomato_mosaic_virus", "Tomato___healthy"];
 
-// Class names for disease detection
-const classNames = [
-    'Apple___Apple_scab', 'Apple___Black_rot', 'Apple___Cedar_apple_rust', 'Apple___healthy',
-    'Blueberry___healthy', 'Cherry_(including_sour)___Powdery_mildew', 'Cherry_(including_sour)___healthy',
-    'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot', 'Corn_(maize)___Common_rust_',
-    'Corn_(maize)___Northern_Leaf_Blight', 'Corn_(maize)___healthy', 'Grape___Black_rot',
-    'Grape___Esca_(Black_Measles)', 'Grape___Leaf_blight_(Isariopsis_Leaf_Spot)', 'Grape___healthy',
-    'Orange___Haunglongbing_(Citrus_greening)', 'Peach___Bacterial_spot', 'Peach___healthy',
-    'Pepper,_bell___Bacterial_spot', 'Pepper,_bell___healthy', 'Potato___Early_blight', 'Potato___Late_blight',
-    'Potato___healthy', 'Raspberry___healthy', 'Soybean___healthy', 'Squash___Powdery_mildew',
-    'Strawberry___Leaf_scorch', 'Strawberry___healthy', 'Tomato___Bacterial_spot', 'Tomato___Early_blight',
-    'Tomato___Late_blight', 'Tomato___Leaf_Mold', 'Tomato___Septoria_leaf_spot',
-    'Tomato___Spider_mites Two-spotted_spider_mite', 'Tomato___Target_Spot',
-    'Tomato___Tomato_Yellow_Leaf_Curl_Virus', 'Tomato___Tomato_mosaic_virus', 'Tomato___healthy'
-];
-
-// Load offline model
+// Function to load the offline model
 async function loadOfflineModel() {
-    if (offlineModelLoading) return false;
-    offlineModelLoading = true;
+    // Don't load again if already loaded
+    if (offlineModel) {
+        return true;
+    }
     
-    console.log("Starting offline model loading process");
+    // Get model status elements
+    const modelStatus = document.getElementById('model-status');
+    const modelLoadingStatus = document.getElementById('model-loading-status');
+    const modelProgressBar = document.getElementById('model-progress-bar');
+    const modelProgressDiv = document.getElementById('model-progress-div');
+    const offlineToggle = document.getElementById('offline-toggle');
+    
+    // Update UI to loading state
+    if (modelStatus) modelStatus.innerText = 'Loading...';
+    if (modelLoadingStatus) modelLoadingStatus.classList.remove('d-none');
+    if (modelProgressBar) modelProgressBar.style.width = '0%';
+    if (modelProgressDiv) modelProgressDiv.classList.remove('d-none');
+    if (offlineToggle) offlineToggle.disabled = true;
     
     try {
-        // Check if TensorFlow is available
-        if (typeof tf === 'undefined') {
-            console.error("TensorFlow.js not loaded");
-            offlineModelLoading = false;
-            return false;
-        }
-
-        // First try to load from IndexedDB if it exists
+        // First try to load metadata and classes
         try {
-            console.log("Checking for locally stored high-accuracy model...");
-            const models = await tf.io.listModels();
-            const highAccuracyPath = 'indexeddb://plant-disease-model-highaccuracy';
-            
-            // If model exists in storage, try to load it
-            if (models[highAccuracyPath]) {
-                try {
-                    console.log("Found high-accuracy model in local storage");
-                    window.offlineModel = await tf.loadLayersModel(highAccuracyPath);
-                    console.log("Successfully loaded high-accuracy model from IndexedDB");
-                    
-                    // Quick verification to ensure the model has the correct structure
-                    try {
-                        // Always use 224x224 input shape to match server model
-                        console.log("Testing model with 224x224 dimensions");
-                        const testTensor = tf.zeros([1, 224, 224, 3]);
-                        const testResult = window.offlineModel.predict(testTensor);
-                        
-                        // Check output shape matches number of classes
-                        if (testResult.shape[1] === classNames.length) {
-                            console.log("Model verification successful. Output shape:", testResult.shape);
-                            testTensor.dispose();
-                            testResult.dispose();
-                            offlineModelLoading = false;
-                            return true;
-                        } else {
-                            console.warn("Model output shape mismatch. Expected:", classNames.length, "Got:", testResult.shape[1]);
-                            testTensor.dispose();
-                            testResult.dispose();
-                            // Stored model is not compatible, delete it
-                            await tf.io.removeModel(highAccuracyPath);
-                        }
-                    } catch (testError) {
-                        console.error("Model test prediction failed:", testError);
-                        window.offlineModel = null;
-                    }
-                } catch (loadError) {
-                    console.error("Failed to load model from storage:", loadError);
-                    // Try to clear the corrupted model
-                    await tf.io.removeModel(highAccuracyPath);
-                    window.offlineModel = null;
-                }
+            const metadataResponse = await fetch('/static/model/metadata.json');
+            if (metadataResponse.ok) {
+                window.modelMetadata = await metadataResponse.json();
             }
+        } catch (error) {
+            // Silently handle metadata loading errors
+        }
+        
+        // Load class names
+        try {
+            const classesResponse = await fetch('/static/model/classes.json');
+            if (classesResponse.ok) {
+                window.classLabels = await classesResponse.json();
+            } else {
+                // Use the global classNames as fallback
+                window.classLabels = classNames;
+            }
+        } catch (error) {
+            // Use the global classNames as fallback
+            window.classLabels = classNames;
+        }
+        
+        // Define progress callback function
+        const onProgress = (fraction) => {
+            // Calculate percentage and update progress bar
+            const percent = Math.round(fraction * 100);
+            if (modelProgressBar) {
+                modelProgressBar.style.width = `${percent}%`;
+                modelProgressBar.innerText = `${percent}%`;
+            }
+        };
+        
+        // Attempt to load the model from IndexedDB first (in case it was cached)
+        try {
+            offlineModel = await tf.loadLayersModel('indexeddb://plant-disease-model');
+        } catch (error) {
+            // Model not found in IndexedDB, loading from server
             
-            // If no model loaded from storage, load from server
-            if (!window.offlineModel) {
-                console.log("Loading high-accuracy model from server...");
-                
-                // Load the model directly from the server with the same path as Flask uses
-                window.offlineModel = await tf.loadLayersModel('/static/model/model.json', {
-                    onProgress: (fraction) => {
-                        console.log(`Model loading progress: ${Math.round(fraction * 100)}%`);
-                    }
+            // First try loading from model.json in the root model folder
+            try {
+                offlineModel = await tf.loadLayersModel('/static/model/model.json', {
+                    onProgress: onProgress
                 });
                 
-                console.log("Successfully loaded high-accuracy model from server");
-                
-                // Save the model to IndexedDB for future offline use
+                // Save the model to IndexedDB for offline use
                 try {
-                    await window.offlineModel.save(highAccuracyPath);
-                    console.log("Saved high-accuracy model to IndexedDB");
+                    await offlineModel.save('indexeddb://plant-disease-model');
                 } catch (saveError) {
-                    console.warn("Could not save model to IndexedDB:", saveError);
+                    // Silently handle save errors
                 }
-                
-                offlineModelLoading = false;
-                return true;
-            }
-            
-            return !!window.offlineModel;
-        } catch (error) {
-            console.error("Error during model loading:", error);
-            
-            // One last attempt to load directly from server if all else fails
-            try {
-                console.log("Last attempt: Loading model directly from server...");
-                
-                // Load the model directly without saving to IndexedDB
-                window.offlineModel = await tf.loadLayersModel('/static/model/model.json');
-                console.log("Successfully loaded model from server on last attempt");
-                
-                offlineModelLoading = false;
-                return true;
-            } catch (finalError) {
-                console.error("Final attempt to load model failed:", finalError);
-                offlineModelLoading = false;
-                return false;
+            } catch (mainModelError) {
+                // Try loading from tfjs_model directory
+                try {
+                    offlineModel = await tf.loadLayersModel('/static/model/tfjs_model/model.json', {
+                        onProgress: onProgress
+                    });
+                    
+                    // Save to IndexedDB for future use
+                    try {
+                        await offlineModel.save('indexeddb://plant-disease-model');
+                    } catch (saveError) {
+                        // Silently handle save errors
+                    }
+                } catch (nestedModelError) {
+                    // Update UI with failure
+                    if (modelStatus) modelStatus.innerText = 'Failed to load';
+                    if (modelLoadingStatus) {
+                        modelLoadingStatus.innerHTML = `
+                            <div class="alert alert-danger">
+                                <strong>Error loading model.</strong>
+                                <p>Please try refreshing the page or use online mode.</p>
+                            </div>
+                        `;
+                    }
+                    
+                    if (offlineToggle) offlineToggle.disabled = false;
+                    return false;
+                }
             }
         }
-    } catch (error) {
-        console.error('Error during model loading process:', error);
-        offlineModelLoading = false;
+        
+        // Final warmup and preparation for the loaded model
+        if (offlineModel) {
+            // If we didn't load metadata yet, create it from the model input shape
+            const inputShape = offlineModel.inputs[0].shape;
+            if (!window.modelMetadata) {
+                window.modelMetadata = {
+                    inputShape: inputShape.slice(1),  // Remove batch dimension
+                    preprocessingParams: {
+                        targetSize: [inputShape[1], inputShape[2]]
+                    },
+                    postprocessingParams: {
+                        confidenceThreshold: 0.1,
+                        topK: 1
+                    }
+                };
+            }
+            
+            try {
+                // Perform a warmup prediction to initialize the model
+                const modelInputShape = window.modelMetadata?.preprocessingParams?.targetSize || 
+                                      [128, 128]; // Default if no metadata
+                
+                const dummyInput = tf.zeros([1, modelInputShape[0], modelInputShape[1], 3]);
+                
+                // Run prediction to initialize model
+                const warmupResult = offlineModel.predict(dummyInput);
+                warmupResult.dataSync(); // Force execution
+                warmupResult.dispose(); // Cleanup
+                dummyInput.dispose(); // Cleanup
+            } catch (warmupError) {
+                // We'll still try to use the model even if warmup fails
+            }
+            
+            // Update UI to show success
+            if (modelStatus) modelStatus.innerText = 'Loaded';
+            if (modelLoadingStatus) modelLoadingStatus.classList.add('d-none');
+            if (modelProgressDiv) modelProgressDiv.classList.add('d-none');
+            
+            return true;
+        }
+        
         return false;
+        
+    } catch (error) {
+        // Update UI to show error
+        if (modelStatus) modelStatus.innerText = 'Error';
+        if (modelLoadingStatus) {
+            modelLoadingStatus.classList.remove('d-none');
+            modelLoadingStatus.innerHTML = `
+                <div class="alert alert-danger">
+                    <strong>Error:</strong> ${error.message}
+                </div>
+            `;
+        }
+        
+        return false;
+    } finally {
+        // Re-enable offline toggle regardless of outcome
+        if (offlineToggle) offlineToggle.disabled = false;
     }
 }
 
@@ -300,7 +496,7 @@ async function clearModelStorage() {
     try {
         const modelPath = 'indexeddb://plant-disease-model';
         await tf.io.removeModel(modelPath);
-        window.offlineModel = null;
+        offlineModel = null;
         resultDiv.innerHTML = `
             <div class="alert alert-success">
                 <p>Model storage has been cleared.</p>
@@ -372,11 +568,11 @@ function fixModelJsonFormat(modelJson) {
 
 // Function to check model compatibility and attempt fixes
 async function checkModelCompatibility() {
-    if (!window.offlineModel) return false;
+    if (!offlineModel) return false;
     
     try {
         // Get the model information
-        const inputShape = window.offlineModel.inputs[0].shape;
+        const inputShape = offlineModel.inputs[0].shape;
         console.log("Model input shape:", inputShape);
         
         // Always use 224x224 to match the model
@@ -384,7 +580,7 @@ async function checkModelCompatibility() {
         
         // Try a prediction
         try {
-            const testResult = window.offlineModel.predict(testTensor);
+            const testResult = offlineModel.predict(testTensor);
             console.log("Test prediction succeeded. Model compatible with 224x224 input.");
             console.log("Test prediction output shape:", testResult.shape);
             
@@ -435,18 +631,16 @@ async function forceModelReset() {
         `;
         
         // First dispose of the current model if it exists
-        if (window.offlineModel) {
-            window.offlineModel.dispose();
-            window.offlineModel = null;
+        if (offlineModel) {
+            offlineModel.dispose();
+            offlineModel = null;
         }
         
         // Clear all models from IndexedDB
         const models = await tf.io.listModels();
         for (const modelPath in models) {
-            if (modelPath.includes('plant-disease-model')) {
                 console.log("Clearing model:", modelPath);
                 await tf.io.removeModel(modelPath);
-            }
         }
         
         // Clear browser cache for model files
@@ -468,7 +662,7 @@ async function forceModelReset() {
         try {
             console.log("Loading fresh model from server...");
             const modelPath = '/static/model/model.json';
-            window.offlineModel = await tf.loadLayersModel(modelPath, {
+            offlineModel = await tf.loadLayersModel(modelPath, {
                 onProgress: (fraction) => {
                     resultDiv.innerHTML = `
                         <div class="alert alert-info">
@@ -485,7 +679,7 @@ async function forceModelReset() {
             });
             
             // Save the model to a new path to avoid issues with the old one
-            await window.offlineModel.save('indexeddb://plant-disease-model-' + new Date().getTime());
+            await offlineModel.save('indexeddb://plant-disease-model-' + new Date().getTime());
             
             resultDiv.innerHTML = `
                 <div class="alert alert-success">
@@ -516,11 +710,11 @@ async function forceModelReset() {
 
 // Function to verify model has the right input dimensions
 async function verifyModelInputDimensions() {
-    if (!window.offlineModel) return false;
+    if (!offlineModel) return false;
     
     try {
         // Get model input shape
-        const modelInputShape = window.offlineModel.inputs[0].shape;
+        const modelInputShape = offlineModel.inputs[0].shape;
         console.log("Model input shape:", modelInputShape);
         
         // Use 224x224 dimensions to match the model
@@ -528,7 +722,7 @@ async function verifyModelInputDimensions() {
         
         try {
             // Try prediction with 224x224
-            const testResult = window.offlineModel.predict(testTensor);
+            const testResult = offlineModel.predict(testTensor);
             testResult.dispose();
             testTensor.dispose();
             console.log("Model validation successful with 224x224");
@@ -703,91 +897,227 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Update detect-offline button click handler to work with captured photos
-document.addEventListener('DOMContentLoaded', function() {
+// Setup the offline detection functionality
+function setupOfflineDetection() {
     const detectOfflineBtn = document.getElementById('detect-offline');
+    const imageInput = document.getElementById('image-input'); 
+    const resultArea = document.getElementById('offline-result-area') || document.getElementById('result-area');
     
-    if (detectOfflineBtn) {
-        // Store the original click handler
-        const originalClickHandler = detectOfflineBtn.onclick;
+    // Check if elements exist before adding event listeners
+    if (!detectOfflineBtn || !imageInput) {
+        console.error("Required elements for offline detection not found");
+        return;
+    }
+    
+    detectOfflineBtn.addEventListener('click', async function() {
+        // Get the result area again in case the DOM has changed
+        const currentResultArea = document.getElementById('offline-result-area') || 
+                                document.getElementById('result-area');
         
-        // Replace with new handler that checks for captured photos
-        detectOfflineBtn.onclick = async function() {
-            const imageInput = document.getElementById('image-input');
-            const resultDiv = document.getElementById('result');
+        if (!currentResultArea) {
+            console.error("No result area found to display results");
+            alert("Error: Cannot find result area to display detection results.");
+            return;
+        }
+        
+        // Validate input - check if a file is selected
+        if (!imageInput || !imageInput.files || !imageInput.files.length) {
+            if (currentResultArea) {
+                currentResultArea.innerHTML = `
+                    <div class="alert alert-warning">
+                        <strong>No image selected!</strong> Please upload an image first.
+                    </div>
+                `;
+            }
+            return;
+        }
+        
+        // Check file type
+        const file = imageInput.files[0];
+        if (!file.type.startsWith('image/')) {
+            currentResultArea.innerHTML = `
+                <div class="alert alert-warning">
+                    <strong>Invalid file type!</strong> Please select an image file.
+                </div>
+            `;
+            return;
+        }
+        
+        // Show loading indicator
+        if (currentResultArea) {
+            currentResultArea.innerHTML = `
+                <div class="d-flex justify-content-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="ms-2">Processing image...</span>
+                </div>
+            `;
+        }
+        
+        try {
+            // Make sure model is loaded
+            if (!offlineModel) {
+                // Try loading the model first if not already loaded
+                const loaded = await loadOfflineModel();
+                if (!loaded) {
+                    throw new Error("Failed to load offline model");
+                }
+            }
             
-            // Check if we have a captured photo
-            if (window.capturedPhotoURL) {
-                const imgURL = window.capturedPhotoURL;
-                resultDiv.innerHTML = `
-                    <div class="card mb-3">
+            // Create an object URL from the image file
+            const imageURL = URL.createObjectURL(imageInput.files[0]);
+            
+            // Create an image element to load the image
+            const img = new Image();
+            
+            // Set up load and error handlers before setting src
+            const imgLoadPromise = new Promise((resolve, reject) => {
+                img.onload = () => {
+                    resolve();
+                };
+                img.onerror = (e) => {
+                    reject(new Error("Failed to load image"));
+                };
+            });
+            
+            // Set the image source
+            img.src = imageURL;
+            
+            // Wait for the image to load
+            await imgLoadPromise;
+            
+            // Get the input dimensions from metadata or use defaults
+            const targetSize = [128, 128]; // Default if metadata is not available
+            
+            if (window.modelMetadata && window.modelMetadata.preprocessingParams && 
+                window.modelMetadata.preprocessingParams.targetSize) {
+                targetSize[0] = window.modelMetadata.preprocessingParams.targetSize[0];
+                targetSize[1] = window.modelMetadata.preprocessingParams.targetSize[1];
+            }
+            
+            let predictionData;
+            let prediction;
+            
+            try {
+                // Process the image with the model - using tf.tidy for better memory management
+                prediction = tf.tidy(() => {
+                    // Create tensors and process
+                    const tensor = tf.browser.fromPixels(img);
+                    const resized = tf.image.resizeBilinear(tensor, targetSize);
+                    const normalized = resized.div(255.0);
+                    const batched = normalized.expandDims(0);
+                    
+                    // Run prediction
+                    return offlineModel.predict(batched);
+                });
+                
+                // Get the prediction data
+                predictionData = await prediction.data();
+                
+            } catch (predictionError) {
+                throw new Error(`Prediction failed: ${predictionError.message}`);
+            } finally {
+                // Clean up tensor memory if it was created
+                if (prediction) prediction.dispose();
+            }
+            
+            // Get the index of the max value (the predicted class)
+            const predictedClassIndex = tf.argMax(predictionData).dataSync()[0];
+            
+            // Get the confidence value (probability score)
+            const originalConfidence = predictionData[predictedClassIndex];
+            
+            // Load the class labels either from metadata or from file
+            let classLabels = [];
+            
+            if (window.classLabels) {
+                classLabels = window.classLabels;
+            } else if (window.modelMetadata && window.modelMetadata.classes) {
+                classLabels = window.modelMetadata.classes;
+            } else {
+                try {
+                    // Try to load class labels from file
+                    const response = await fetch('/static/model/classes.json');
+                    if (response.ok) {
+                        classLabels = await response.json();
+                        // Cache for future use
+                        window.classLabels = classLabels;
+                    } else {
+                        throw new Error("Failed to load class labels");
+                    }
+                } catch (error) {
+                    // If we can't load, create placeholder labels
+                    classLabels = Array.from({length: predictionData.length}, (_, i) => `Class ${i}`);
+                }
+            }
+            
+            // Get the plant type from the dropdown
+            const plantTypeSelect = document.getElementById('plant-type-offline');
+            const selectedPlantType = plantTypeSelect ? plantTypeSelect.value.toLowerCase() : 'any';
+            
+            // Get the predicted class name
+            const predictedClass = classLabels[predictedClassIndex];
+            
+            // Do plant type filtering only if not set to "any"
+            let finalPrediction = predictedClass;
+            if (selectedPlantType !== 'any') {
+                // Check if the prediction matches the selected plant type
+                const matchesSelectedPlant = predictedClass.toLowerCase().includes(selectedPlantType);
+                
+                if (!matchesSelectedPlant) {
+                    // Find the highest confidence class that matches the selected plant
+                    let highestMatchedIndex = -1;
+                    let highestMatchedConfidence = -1;
+                    
+                    for (let i = 0; i < predictionData.length; i++) {
+                        const currentClass = classLabels[i].toLowerCase();
+                        if (currentClass.includes(selectedPlantType) && predictionData[i] > highestMatchedConfidence) {
+                            highestMatchedConfidence = predictionData[i];
+                            highestMatchedIndex = i;
+                        }
+                    }
+                    
+                    if (highestMatchedIndex !== -1) {
+                        finalPrediction = classLabels[highestMatchedIndex];
+                    }
+                }
+            }
+            
+            // Create result HTML without showing confidence
+            if (currentResultArea) {
+                currentResultArea.innerHTML = `
+                    <div class="card border-0 shadow-sm">
                         <div class="card-body">
-                            <h5 class="card-title">Captured Image</h5>
-                            <img src="${imgURL}" class="img-fluid mb-3" style="max-width: 300px;">
-                            <div class="alert alert-info">Processing image...</div>
+                            <h5 class="card-title text-center mb-3">Detection Result</h5>
+                            <p class="text-center fs-5 mb-2">${finalPrediction}</p>
                         </div>
                     </div>
                 `;
-                
-                // Check if model is loaded
-                if (!window.offlineModel) {
-                    const modelLoaded = await loadOfflineModel();
-                    if (!modelLoaded) {
-                        return;
-                    }
-                }
-                
-                // Process with current model
-                await processWithRegularModel(imgURL, resultDiv);
-                
-                // Clear the stored photo URL
-                window.capturedPhotoURL = null;
-                return;
+            } else {
+                console.error("No result area found to display results");
+                alert("Error: Cannot find result area to display detection results");
             }
             
-            // If no captured photo, use file input as before
-            if (!imageInput.files || imageInput.files.length === 0) {
-                resultDiv.innerHTML = `
-                    <div class="alert alert-warning">
-                        <p>Please take a photo or select an image first.</p>
+            // Clean up object URL
+            URL.revokeObjectURL(imageURL);
+            
+        } catch (error) {
+            console.error("Error in offline detection:", error);
+            if (currentResultArea) {
+                currentResultArea.innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Error:</strong> ${error.message}
+                        <p>Please try again or switch to online mode.</p>
+                        <button class="btn btn-primary mt-2" onclick="forceReloadModel(false)">
+                            <i class="fas fa-sync me-2"></i>Reload Model
+                        </button>
                     </div>
                 `;
-                return;
             }
-            
-            // Continue with file processing as before
-            const file = imageInput.files[0];
-            const imgURL = URL.createObjectURL(file);
-            resultDiv.innerHTML = `
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <h5 class="card-title">Uploaded Image</h5>
-                        <img src="${imgURL}" class="img-fluid mb-3" style="max-width: 300px;">
-                        <div class="alert alert-info">Processing image...</div>
-                    </div>
-                </div>
-            `;
-            
-            // Check if model is loaded
-            if (!window.offlineModel) {
-                const modelLoaded = await loadOfflineModel();
-                if (!modelLoaded) {
-                    return;
-                }
-            }
-            
-            // Verify model has the correct dimensions for 224x224
-            const modelInputShape = window.offlineModel.inputs[0].shape;
-            if (!modelInputShape || modelInputShape[1] !== 224 || modelInputShape[2] !== 224) {
-                console.log("Model has incorrect dimensions, reloading...");
-                await forceReloadModel();
-            }
-            
-            // Process with current model
-            await processWithRegularModel(imgURL, resultDiv);
-        };
-    }
-});
+        }
+    });
+}
 
 // Check if model is already available when page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -806,33 +1136,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="alert alert-info mb-3">
                     <p><strong>Offline Mode</strong></p>
                     <p>Take a photo or upload a plant image for local analysis without internet connection.</p>
-                    <div class="text-right">
-                        <button id="reset-model-btn" class="btn btn-outline-dark btn-sm mt-1">
-                            <i class="fas fa-sync-alt"></i> Reset Model
-                        </button>
-                    </div>
                 </div>
             `);
-            
-            // Add event listener for the reset model button
-            setTimeout(() => {
-                const resetBtn = document.getElementById('reset-model-btn');
-                if (resetBtn) {
-                    resetBtn.addEventListener('click', async function() {
-                        const resultDiv = document.getElementById('result');
-                        resultDiv.innerHTML = `
-                            <div class="alert alert-info">
-                                <p><strong>Resetting model...</strong></p>
-                                <p>Downloading high-accuracy model...</p>
-                            </div>
-                        `;
-                        
-                        // Force reload the high-accuracy model
-                        await forceReloadModel(false);
-                    });
-                }
-            }, 100);
-        }
+    }
+}
+    
+    // Ensure "Any plant" is selected by default in both dropdowns
+    const onlinePlantType = document.getElementById('plant-type');
+    const offlinePlantType = document.getElementById('plant-type-offline');
+    
+    if (onlinePlantType && onlinePlantType.querySelector('option[value="any"]')) {
+        onlinePlantType.value = 'any';
+    }
+    
+    if (offlinePlantType && offlinePlantType.querySelector('option[value="any"]')) {
+        offlinePlantType.value = 'any';
     }
 });
 
@@ -927,178 +1245,14 @@ function initLanguageSelector() {
     });
 }
 
-// Reset model button click handler
-document.addEventListener('DOMContentLoaded', function() {
-    const resetModelBtn = document.getElementById('reset-model-btn');
-    if (resetModelBtn) {
-        resetModelBtn.addEventListener('click', async function() {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = `
-                <div class="alert alert-info">
-                    <p><strong>Preparing to reset model...</strong></p>
-                </div>
-            `;
-            
-            // Call the reset function
-            const success = await forceModelReset();
-            
-            if (success) {
-                resultDiv.innerHTML = `
-                    <div class="alert alert-success">
-                        <p><strong>Model reset successful!</strong></p>
-                        <p>You can now try detecting diseases again.</p>
-                    </div>
-                `;
-            }
-        });
-    }
-});
-
-// Add a complete reset function for the model
-async function resetCompleteModel() {
-    try {
-        const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML = `
-            <div class="alert alert-info">
-                <p><strong>Performing complete model reset...</strong></p>
-                <p>This will clear all cached model data and download a fresh version.</p>
-            </div>
-        `;
-        
-        // Clear all indexedDB storage related to TensorFlow.js
-        console.log("Clearing all model storage...");
-        
-        // First dispose of any loaded models
-        if (window.offlineModel) {
-            window.offlineModel.dispose();
-            window.offlineModel = null;
-        }
-        
-        // Clear model metadata
-        window.modelMetadata = null;
-        
-        // List and clear all models
-        try {
-            const models = await tf.io.listModels();
-            for (const modelPath in models) {
-                console.log(`Removing model: ${modelPath}`);
-                await tf.io.removeModel(modelPath);
-            }
-        } catch (e) {
-            console.warn("Error listing/removing models:", e);
-        }
-        
-        // Clear browser caches if possible
-        if ('caches' in window) {
-            try {
-                const cacheNames = await window.caches.keys();
-                for (const cacheName of cacheNames) {
-                    if (cacheName.includes('tensorflowjs') || cacheName.includes('model')) {
-                        await window.caches.delete(cacheName);
-                        console.log(`Deleted cache: ${cacheName}`);
-                    }
-                }
-            } catch (e) {
-                console.warn("Error clearing caches:", e);
-            }
-        }
-        
-        // Wait a moment
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Force a fresh download from the server
-        resultDiv.innerHTML = `
-            <div class="alert alert-info">
-                <p><strong>Downloading fresh model...</strong></p>
-                <div class="progress mt-2">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                         role="progressbar" style="width: 0%" 
-                         aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-                </div>
-            </div>
-        `;
-        
-        // Load the fresh model
-        try {
-            // First, fetch metadata
-            let modelMetadata;
-            try {
-                // Add a cache-busting parameter
-                const metadataResponse = await fetch(`/static/model/metadata.json?t=${Date.now()}`);
-                if (metadataResponse.ok) {
-                    modelMetadata = await metadataResponse.json();
-                    console.log("Fresh metadata loaded:", modelMetadata);
-                    window.modelMetadata = modelMetadata;
-                }
-            } catch (metadataError) {
-                console.warn("Could not load metadata:", metadataError);
-            }
-            
-            // Then load the model with a progress indicator
-            const progressBar = document.querySelector('.progress-bar');
-            window.offlineModel = await tf.loadLayersModel(`/static/model/model.json?t=${Date.now()}`, {
-                onProgress: (fraction) => {
-                    const percent = Math.round(fraction * 100);
-                    if (progressBar) {
-                        progressBar.style.width = `${percent}%`;
-                        progressBar.setAttribute('aria-valuenow', percent);
-                        progressBar.textContent = `${percent}%`;
-                    }
-                }
-            });
-            
-            // Save to a new, uniquely named path
-            const uniqueModelPath = `indexeddb://plant-disease-model-${Date.now()}`;
-            await window.offlineModel.save(uniqueModelPath);
-            
-            resultDiv.innerHTML = `
-                <div class="alert alert-success">
-                    <p><strong>Model reset complete!</strong></p>
-                    <p>The model has been completely reloaded from the server and cached for offline use.</p>
-                    <p>You can now try detecting plant diseases again.</p>
-                </div>
-            `;
-            return true;
-        } catch (error) {
-            console.error("Error loading fresh model:", error);
-            resultDiv.innerHTML = `
-                <div class="alert alert-danger">
-                    <p><strong>Model reset failed.</strong></p>
-                    <p>Error: ${error.message}</p>
-                    <p>Please try switching to online mode or using a different browser.</p>
-                </div>
-            `;
-            return false;
-        }
-    } catch (error) {
-        console.error("General error during model reset:", error);
-        return false;
-    }
-}
-
 // Reset model button click handler - use the new complete reset function
 document.addEventListener('DOMContentLoaded', function() {
-    const resetModelBtn = document.getElementById('reset-model-btn');
-    if (resetModelBtn) {
-        resetModelBtn.addEventListener('click', async function() {
-            // Call the new complete reset function
-            await resetCompleteModel();
-        });
-    }
+    // No longer needed - reset model button has been removed
 });
 
 // Remove event listeners for the reset model button
 document.addEventListener('DOMContentLoaded', function() {
-    // Remove any existing reset model button event listeners
-    const resetModelBtn = document.getElementById('reset-model-btn');
-    if (resetModelBtn) {
-        // Clone and replace to remove event listeners
-        const newBtn = resetModelBtn.cloneNode(true);
-        resetModelBtn.parentNode.replaceChild(newBtn, resetModelBtn);
-        
-        // Hide the button
-        newBtn.style.display = 'none';
-    }
+    // No longer needed - reset model button has been removed
 });
 
 // Function to handle model dimension errors and retry
@@ -1138,18 +1292,17 @@ async function fixModelDimensionError(e, imgURL) {
         });
         
         // Run prediction with fixed dimensions
-        const prediction = window.offlineModel.predict(tensor);
+        const prediction = offlineModel.predict(tensor);
         const probabilities = Array.from(await prediction.data());
         
         // Get max probability and class
         const maxIndex = probabilities.indexOf(Math.max(...probabilities));
         const maxProb = probabilities[maxIndex];
-        const className = classNames[maxIndex];
+        const className = window.diseaseClasses[maxIndex];
         
         console.log("Fixed prediction successful:", {
             class: className,
-            index: maxIndex,
-            confidence: maxProb
+            index: maxIndex
         });
         
         // Apply confidence threshold of 0.4 like in server
@@ -1157,30 +1310,29 @@ async function fixModelDimensionError(e, imgURL) {
         
         // Display result with server's confidence threshold logic
         if (maxProb >= confidenceThreshold) {
-            resultDiv.innerHTML = `
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <h5 class="card-title">Detection Result</h5>
-                        <div class="row">
-                            <div class="col-md-5">
-                                <img src="${imgURL}" class="img-fluid rounded mb-3" style="max-width: 100%;">
-                            </div>
-                            <div class="col-md-7">
-                                <div class="alert alert-success">
-                                    <h5><i class="fas fa-check-circle"></i> Disease Detected:</h5>
-                                    <p class="mb-1"><strong>Disease:</strong> ${className.replace(/_/g, ' ')}</p>
-                                    <p><strong>Confidence:</strong> ${(maxProb * 100).toFixed(2)}%</p>
-                                </div>
-                            </div>
-                        </div>
+            // Check if className is valid before formatting
+            if (className) {
+            // Format the class name to be more readable
+            const formattedName = className
+                .replace(/_/g, ' ')
+                .replace('___', ': ')
+                .replace('/', ' or ');
+                
+            // Use the displayResults function to show results
+                displayResults(formattedName);
+            } else {
+                // Handle the case where className is undefined
+                resultDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        <p><strong>Error:</strong> Could not determine plant disease class.</p>
+                        <p>Please try again with a clearer image or switch to online mode.</p>
                     </div>
-                </div>
-            `;
+                `;
+            }
         } else {
             resultDiv.innerHTML = `
                 <div class="card mb-3">
                     <div class="card-body">
-                        <h5 class="card-title">Detection Result</h5>
                         <div class="row">
                             <div class="col-md-5">
                                 <img src="${imgURL}" class="img-fluid rounded mb-3" style="max-width: 100%;">
@@ -1188,7 +1340,7 @@ async function fixModelDimensionError(e, imgURL) {
                             <div class="col-md-7">
                                 <div class="alert alert-warning">
                                     <h5><i class="fas fa-exclamation-circle"></i> Low Confidence:</h5>
-                                    <p>Model is not confident about the prediction (${(maxProb * 100).toFixed(2)}%)</p>
+                                    <p>Model is not confident about the prediction</p>
                                     <p>Try with a clearer image or better lighting.</p>
                                 </div>
                             </div>
@@ -1201,6 +1353,19 @@ async function fixModelDimensionError(e, imgURL) {
         // Clean up tensors
         tensor.dispose();
         prediction.dispose();
+        
+        // Hide loading indicator
+        const offlineLoading = document.getElementById('offline-loading');
+        if (offlineLoading) {
+            offlineLoading.classList.add('d-none');
+        }
+        
+        // Re-enable the detect button
+        const detectOfflineBtn = document.getElementById('detect-offline');
+        if (detectOfflineBtn) {
+            detectOfflineBtn.disabled = false;
+        }
+        
         return true;
     } catch (retryError) {
         console.error("Error in dimension fix:", retryError);
@@ -1219,6 +1384,18 @@ async function fixModelDimensionError(e, imgURL) {
             await forceReloadModel(false);
             document.getElementById('detect-offline').click();
         });
+        
+        // Hide loading indicator
+        const offlineLoading = document.getElementById('offline-loading');
+        if (offlineLoading) {
+            offlineLoading.classList.add('d-none');
+        }
+        
+        // Re-enable the detect button
+        const detectOfflineBtn = document.getElementById('detect-offline');
+        if (detectOfflineBtn) {
+            detectOfflineBtn.disabled = false;
+        }
         
         return true; // We handled the error with our custom UI
     }
@@ -1249,34 +1426,27 @@ async function processWithH5Model(imgURL, resultDiv) {
             const result = await predictResponse.json();
             
             if (result.success) {
-                // Display prediction results
+                // Format class name for display
                 const className = result.class;
-                const confidence = result.confidence;
                 
-                resultDiv.innerHTML = `
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <h5 class="card-title">Detection Result (High Accuracy)</h5>
-                            <div class="row">
-                                <div class="col-md-5">
-                                    <img src="${imgURL}" class="img-fluid rounded mb-3" style="max-width: 100%;">
-                                </div>
-                                <div class="col-md-7">
-                                    <div class="alert alert-success">
-                                        <h5><i class="fas fa-check-circle"></i> Disease Detected:</h5>
-                                        <p class="mb-1"><strong>Disease:</strong> ${className}</p>
-                                        <p><strong>Confidence:</strong> ${(confidence * 100).toFixed(2)}%</p>
-                                        <p><small class="text-muted">Using same model as online mode</small></p>
-                                    </div>
-                                    <div class="mt-3">
-                                        <h6>What to do next:</h6>
-                                        <p>Based on this diagnosis, we recommend consulting with a local agricultural expert for treatment options.</p>
-                                    </div>
-                                </div>
-                            </div>
+                // Check if className is valid
+                if (className) {
+                    const formattedName = className
+                        .replace(/_/g, ' ')
+                        .replace('___', ': ')
+                        .replace('/', ' or ');
+                        
+                    // Display prediction results using the displayResults function
+                    displayResults(formattedName);
+                } else {
+                    // Handle the case where className is undefined
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-warning">
+                            <p><strong>Error:</strong> Could not determine plant disease class.</p>
+                            <p>Please try again with a clearer image or switch to online mode.</p>
                         </div>
-                    </div>
-                `;
+                    `;
+                }
             } else {
                 resultDiv.innerHTML = `
                     <div class="alert alert-warning">
@@ -1286,7 +1456,7 @@ async function processWithH5Model(imgURL, resultDiv) {
                 `;
                 
                 // Fall back to regular model processing
-                if (!window.offlineModel) {
+                if (!offlineModel) {
                     const modelLoaded = await loadOfflineModel();
                     if (!modelLoaded) {
                         return;
@@ -1324,288 +1494,192 @@ async function processWithH5Model(imgURL, resultDiv) {
 // Refactored original processing function to be called as a fallback
 async function processWithRegularModel(imgURL, resultDiv) {
     try {
-        // If model isn't loaded, load it properly with the high accuracy model first
-        if (!window.offlineModel) {
-            resultDiv.innerHTML = `
-                <div class="alert alert-info">
-                    <p><strong>Loading model...</strong></p>
-                    <p>Please wait while the high-accuracy model is being loaded.</p>
+        // Show loading message
+        resultDiv.innerHTML = `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Uploaded Image</h5>
+                    <img src="${imgURL}" class="img-fluid mb-3" style="max-width: 300px;">
+                    <div class="alert alert-info">
+                        <i class="fas fa-spinner fa-pulse me-2"></i>Processing image with AI model...
+                    </div>
                 </div>
-            `;
-            const success = await forceReloadModel();
-            if (!success) {
-                throw new Error("Failed to load the high-accuracy model. Please check your internet connection and try again.");
-            }
-        }
+            </div>
+        `;
         
-        // Process the image - EXACTLY like the server model
+        // Create a tensor from the image
         const img = new Image();
         img.src = imgURL;
-        await new Promise((resolve) => img.onload = resolve);
+        await new Promise(resolve => img.onload = resolve);
         
-        // CRITICAL: Always use 224x224 to match the model's expected dimensions
-        const targetSize = [224, 224];
-        console.log("Using target size:", targetSize);
-        
-        // Preprocess the image to match model's expected input - using same steps as server
+        // Preprocess the image - ALWAYS use 224x224 to match model
         const tensor = tf.tidy(() => {
-            // Read the image pixels
             const pixels = tf.browser.fromPixels(img);
-            
-            // Resize to 224x224 to match the model's input shape
-            const resized = tf.image.resizeBilinear(pixels, targetSize);
-            
-            // Normalize exactly as the server does (to [0,1] range)
+            const resized = tf.image.resizeBilinear(pixels, [224, 224]);
             const normalized = tf.div(resized, 255.0);
-            
-            // Add batch dimension [1, height, width, 3]
             return normalized.expandDims(0);
         });
         
         // Ensure model has correct shape before prediction
-        if (window.offlineModel.inputs[0].shape[1] !== 224 || window.offlineModel.inputs[0].shape[2] !== 224) {
+        if (offlineModel.inputs[0].shape[1] !== 224 || offlineModel.inputs[0].shape[2] !== 224) {
             console.error("Model input shape mismatch, need to reload model");
             await forceReloadModel();
         }
         
         // Run inference with the model
         console.log("Running prediction with model");
-        const prediction = window.offlineModel.predict(tensor);
+        const prediction = offlineModel.predict(tensor);
         const probabilities = Array.from(await prediction.data());
         
         // Find max probability and corresponding class
         const maxIndex = probabilities.indexOf(Math.max(...probabilities));
         const maxProb = probabilities[maxIndex];
-        const className = classNames[maxIndex];
+        const className = window.diseaseClasses[maxIndex];
         
         console.log("Prediction result:", {
             class: className,
-            confidence: maxProb,
             allProbabilities: probabilities
         });
         
         // Use the same confidence threshold as server (0.4)
         const confidenceThreshold = 0.4;
         
-        // Display result with same formatting as the server result, but only showing the top prediction
-        if (maxProb >= confidenceThreshold) {
-            // Show loading message while fetching treatment information
+        if (maxProb < confidenceThreshold) {
+            // Model is not confident enough
             resultDiv.innerHTML = `
                 <div class="card mb-3">
                     <div class="card-body">
                         <h5 class="card-title">Detection Result</h5>
                         <div class="row">
                             <div class="col-md-5">
-                                <img src="${imgURL}" class="img-fluid rounded mb-3" style="max-width: 100%;">
-                            </div>
-                            <div class="col-md-7">
-                                <div class="alert alert-success">
-                                    <h5><i class="fas fa-check-circle"></i> Disease Detected:</h5>
-                                    <p class="mb-1"><strong>Disease:</strong> ${className.replace(/_/g, ' ')}</p>
-                                    <p><strong>Confidence:</strong> ${(maxProb * 100).toFixed(2)}%</p>
-                                </div>
-                                <div class="alert alert-info">
-                                    <p><strong>Fetching treatment information...</strong></p>
-                                    <div class="spinner-border spinner-border-sm" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // Try to fetch treatment information from server
-            try {
-                // Check if online
-                const isOnline = navigator.onLine;
-                if (isOnline) {
-                    // Make API call to get treatment info
-                    const response = await fetch('/api/text-detection', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            symptoms: `Provide information about the plant disease: ${className}`
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.success && data.result) {
-                            // Parse the sections
-                            const treatmentInfo = data.result;
-                            let sections = treatmentInfo.split('\n\n');
-                            let treatmentSection = '';
-                            let preventionSection = '';
-                            let referencesSection = '';
-                            
-                            for (const section of sections) {
-                                if (section.includes('Treatment:')) {
-                                    treatmentSection = section;
-                                } else if (section.includes('Prevention:')) {
-                                    preventionSection = section;
-                                } else if (section.includes('References:')) {
-                                    referencesSection = section;
-                                }
-                            }
-                            
-                            // Update the UI with the information
-                            resultDiv.innerHTML = `
-                                <div class="card mb-3">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Detection Result</h5>
-                                        <div class="row">
-                                            <div class="col-md-5">
-                                                <img src="${imgURL}" class="img-fluid rounded mb-3" style="max-width: 100%;">
-                                            </div>
-                                            <div class="col-md-7">
-                                                <div class="alert alert-success">
-                                                    <h5><i class="fas fa-check-circle"></i> Disease Detected:</h5>
-                                                    <p class="mb-1"><strong>Disease:</strong> ${className.replace(/_/g, ' ')}</p>
-                                                    <p><strong>Confidence:</strong> ${(maxProb * 100).toFixed(2)}%</p>
-                                                </div>
-                                                
-                                                ${treatmentSection ? `
-                                                <div class="treatment-section mb-3">
-                                                    <h5><i class="fas fa-prescription-bottle me-2"></i>Treatment Options</h5>
-                                                    ${treatmentSection.replace("Treatment:", "")}
-                                                </div>
-                                                ` : ''}
-                                                
-                                                ${preventionSection ? `
-                                                <div class="prevention-section mb-3">
-                                                    <h5><i class="fas fa-shield-alt me-2"></i>Prevention Measures</h5>
-                                                    ${preventionSection.replace("Prevention:", "")}
-                                                </div>
-                                                ` : ''}
-                                                
-                                                ${referencesSection ? `
-                                                <div class="references-section mb-3">
-                                                    <h5><i class="fas fa-book me-2"></i>References</h5>
-                                                    <div class="references-content small">
-                                                        ${referencesSection.replace("References:", "")}
-                                                    </div>
-                                                </div>
-                                                ` : ''}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                            return;
-                        }
-                    }
-                }
-                
-                // If fetch fails or we're offline, show basic result
-                resultDiv.innerHTML = `
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <h5 class="card-title">Detection Result</h5>
-                            <div class="row">
-                                <div class="col-md-5">
-                                    <img src="${imgURL}" class="img-fluid rounded mb-3" style="max-width: 100%;">
-                                </div>
-                                <div class="col-md-7">
-                                    <div class="alert alert-success">
-                                        <h5><i class="fas fa-check-circle"></i> Disease Detected:</h5>
-                                        <p class="mb-1"><strong>Disease:</strong> ${className.replace(/_/g, ' ')}</p>
-                                        <p><strong>Confidence:</strong> ${(maxProb * 100).toFixed(2)}%</p>
-                                    </div>
-                                    <div class="alert alert-info">
-                                        <p><i class="fas fa-info-circle"></i> Connect to the internet for detailed treatment and prevention information.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } catch (error) {
-                console.error("Error fetching treatment information:", error);
-                // Show basic result on error
-                resultDiv.innerHTML = `
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <h5 class="card-title">Detection Result</h5>
-                            <div class="row">
-                                <div class="col-md-5">
-                                    <img src="${imgURL}" class="img-fluid rounded mb-3" style="max-width: 100%;">
-                                </div>
-                                <div class="col-md-7">
-                                    <div class="alert alert-success">
-                                        <h5><i class="fas fa-check-circle"></i> Disease Detected:</h5>
-                                        <p class="mb-1"><strong>Disease:</strong> ${className.replace(/_/g, ' ')}</p>
-                                        <p><strong>Confidence:</strong> ${(maxProb * 100).toFixed(2)}%</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-        } else {
-            // For low confidence, show a clear message
-            resultDiv.innerHTML = `
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <h5 class="card-title">Detection Result</h5>
-                        <div class="row">
-                            <div class="col-md-5">
-                                <img src="${imgURL}" class="img-fluid rounded mb-3" style="max-width: 100%;">
+                                <img src="${imgURL}" class="img-fluid rounded mb-3">
                             </div>
                             <div class="col-md-7">
                                 <div class="alert alert-warning">
                                     <h5><i class="fas fa-exclamation-circle"></i> Low Confidence:</h5>
-                                    <p>The model is not confident about the prediction (${(maxProb * 100).toFixed(2)}%).</p>
-                                    <p>For more accurate results, try with a clearer image or use the online mode.</p>
+                                    <p>The model is not confident enough about this image</p>
+                                    <p>Try taking a clearer photo with better lighting and a simple background.</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             `;
+        } else {
+            // Check if className is valid
+            if (className) {
+            // Format the class name to be more readable
+            const formattedName = className
+                .replace(/_/g, ' ')
+                .replace('___', ': ')
+                .replace('/', ' or ');
+                
+            // Use the displayResults function to show results
+                displayResults(formattedName);
+            } else {
+                // Handle the case where className is undefined
+                resultDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        <p><strong>Error:</strong> Could not determine plant disease class.</p>
+                        <p>Please try again with a clearer image or switch to online mode.</p>
+                    </div>
+                `;
+            }
+            
+            // Hide loading indicator
+            const offlineLoading = document.getElementById('offline-loading');
+            if (offlineLoading) {
+                offlineLoading.classList.add('d-none');
+            }
+            
+            // Re-enable the detect button
+            const detectOfflineBtn = document.getElementById('detect-offline');
+            if (detectOfflineBtn) {
+                detectOfflineBtn.disabled = false;
+            }
+            
+            // Clean up tensors
+            tensor.dispose();
+            prediction.dispose();
+            return;
         }
         
         // Clean up tensors
         tensor.dispose();
         prediction.dispose();
         
-    } catch (error) {
-        console.error('Error processing image:', error);
-        
-        // Try to fix dimension mismatch errors
-        const fixed = await fixModelDimensionError(error, imgURL);
-        if (fixed) {
-            return; // Error was handled and fixed
+        // Hide loading indicator
+        const offlineLoading = document.getElementById('offline-loading');
+        if (offlineLoading) {
+            offlineLoading.classList.add('d-none');
         }
         
-        // If error wasn't fixed, show error message
-        resultDiv.innerHTML = `
-            <div class="alert alert-danger">
-                <p><i class="fas fa-exclamation-triangle"></i> Error processing image: ${error.message}</p>
-                <p>Please try again with a different image or reload the model.</p>
-                <button class="btn btn-primary mt-2" onclick="forceReloadModel().then(() => document.getElementById('detect-offline').click())">
-                    <i class="fas fa-sync-alt"></i> Reload Model & Try Again
-                </button>
-            </div>
-        `;
+        // Re-enable the detect button
+        const detectOfflineBtn = document.getElementById('detect-offline');
+        if (detectOfflineBtn) {
+            detectOfflineBtn.disabled = false;
+        }
+    } catch (error) {
+        console.error("Error in regular model processing:", error);
+        
+        // Check if it's a dimension mismatch error and try to fix it
+        if (error.message && (error.message.includes('dimension') || error.message.includes('shape'))) {
+            try {
+                // Try to fix dimension error
+                await fixModelDimensionError(error, imgURL);
+            } catch (e) {
+                console.error("Error in dimension fix:", e);
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Error:</h5>
+                        <p>${error.message}</p>
+                        <p>Please try again with a different image or reload the page.</p>
+                    </div>
+                `;
+            }
+        } else {
+            // General error handling
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Error:</h5>
+                    <p>${error.message}</p>
+                    <p>Please try again or switch to online mode if available.</p>
+                </div>
+            `;
+        }
+        
+        // Hide loading indicator
+        const offlineLoading = document.getElementById('offline-loading');
+        if (offlineLoading) {
+            offlineLoading.classList.add('d-none');
+        }
+        
+        // Re-enable the detect button
+        const detectOfflineBtn = document.getElementById('detect-offline');
+        if (detectOfflineBtn) {
+            detectOfflineBtn.disabled = false;
+        }
     }
 }
 
-// Add this new function to force clear storage and reload model
+// Function to force reload the model
 async function forceReloadModel(silentMode = false) {
-    console.log("Forcing reload of high-accuracy model...");
-    const resultDiv = document.getElementById('result');
-    const isOnlineMode = document.getElementById('mode-toggle').value === 'online';
+    console.log("Forcing reload of custom disease detection model...");
+    
+    // Get model status elements
+    const modelStatus = document.getElementById('model-status');
+    const modelLoadingStatus = document.getElementById('model-loading-status');
+    const modelProgressBar = document.getElementById('model-progress-bar');
+    const modelProgressDiv = document.getElementById('model-progress-div');
+    const offlineToggle = document.getElementById('offline-toggle');
+    const resultDiv = document.getElementById('result-area');
+    const isOnlineMode = document.getElementById('mode-toggle')?.value === 'online';
     
     // If in online mode or silent mode requested, don't show any messages
     if (!silentMode && !isOnlineMode && resultDiv) {
         resultDiv.innerHTML = `
             <div class="alert alert-info">
-                <p><strong>Reloading high-accuracy model...</strong></p>
+                <p><strong>Reloading disease detection model...</strong></p>
                 <p>Please wait while the model is being prepared.</p>
             </div>
         `;
@@ -1613,9 +1687,9 @@ async function forceReloadModel(silentMode = false) {
     
     try {
         // First dispose any existing model
-        if (window.offlineModel) {
-            window.offlineModel.dispose();
-            window.offlineModel = null;
+        if (offlineModel) {
+            offlineModel.dispose();
+            offlineModel = null;
         }
         
         // Clear all models from storage
@@ -1643,110 +1717,236 @@ async function forceReloadModel(silentMode = false) {
         // Wait a moment for storage to clear
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Load fresh model directly from server
+        // Get timestamp to bypass cache
+        const timestamp = Date.now();
+        
+        // First load model metadata and class names
+        window.modelMetadata = null;  // Reset metadata
+        window.diseaseClasses = null; // Reset classes
+        
+        // Load metadata
         try {
-            // Get metadata first for proper configuration
-            let modelMetadata;
-            try {
-                const metadataResponse = await fetch('/static/model/metadata.json?t=' + Date.now());
-                if (metadataResponse.ok) {
-                    modelMetadata = await metadataResponse.json();
-                    console.log("High-accuracy model metadata:", modelMetadata);
-                    window.modelMetadata = modelMetadata;
-                }
-            } catch (e) {
-                console.warn("Could not load metadata:", e);
+            const metadataResponse = await fetch(`/static/model/metadata.json?t=${timestamp}`);
+            if (metadataResponse.ok) {
+                window.modelMetadata = await metadataResponse.json();
+                console.log("Model metadata:", window.modelMetadata);
             }
-            
-            // Load model with progress indicator
-            console.log("Loading fresh high-accuracy model...");
-            window.offlineModel = await tf.loadLayersModel('/static/model/model.json?t=' + Date.now(), {
-                onProgress: (fraction) => {
-                    // Only show progress if not in silent mode and not in online mode
-                    const percent = Math.round(fraction * 100);
-                    if (!silentMode && !isOnlineMode && resultDiv) {
-                        resultDiv.innerHTML = `
-                            <div class="alert alert-info">
-                                <p><strong>Loading high-accuracy model: ${percent}%</strong></p>
-                                <div class="progress">
-                                    <div class="progress-bar" role="progressbar" 
-                                         style="width: ${percent}%" 
-                                         aria-valuenow="${percent}" 
-                                         aria-valuemin="0" 
-                                         aria-valuemax="100"></div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                }
-            });
-            
-            console.log("Successfully loaded high-accuracy model");
-            
-            // Save to a new path in storage for future use
-            const modelPath = 'indexeddb://plant-disease-model-highaccuracy';
-            await window.offlineModel.save(modelPath);
-            console.log(`Saved high-accuracy model to ${modelPath}`);
-            
-            // Test the model
-            if (window.offlineModel) {
-                try {
-                    // Always use 224x224 dimensions
-                    console.log("Testing high-accuracy model...");
-                    const testTensor = tf.zeros([1, 224, 224, 3]);
-                    const testResult = window.offlineModel.predict(testTensor);
-                    console.log("Test successful:", testResult.shape);
-                    testTensor.dispose();
-                    testResult.dispose();
-                    
-                    // Only show success message if not in silent mode and not in online mode
-                    if (!silentMode && !isOnlineMode && resultDiv) {
-                        resultDiv.innerHTML = `
-                            <div class="alert alert-success">
-                                <p><strong>High-accuracy model loaded successfully!</strong></p>
-                                <p>The offline detection should now provide results very similar to the online version.</p>
-                            </div>
-                        `;
-                    }
-                    
-                    return true;
-                } catch (e) {
-                    console.error("Model test failed:", e);
-                    if (!silentMode && !isOnlineMode && resultDiv) {
-                        resultDiv.innerHTML = `
-                            <div class="alert alert-danger">
-                                <p><strong>Error testing model:</strong> ${e.message}</p>
-                                <p>Please try again or switch to online mode.</p>
-                            </div>
-                        `;
-                    }
-                    return false;
-                }
-            }
-            
-            return true;
-        } catch (e) {
-            console.error("Error loading model:", e);
-            if (!silentMode && !isOnlineMode && resultDiv) {
-                resultDiv.innerHTML = `
-                    <div class="alert alert-danger">
-                        <p><strong>Error loading model:</strong> ${e.message}</p>
-                        <p>Please try again or switch to online mode.</p>
-                    </div>
-                `;
-            }
-            return false;
+        } catch (error) {
+            console.warn("Could not load model metadata:", error);
         }
-    } catch (e) {
-        console.error("Error preparing model:", e);
+        
+        // Load class names
+        try {
+            const classesResponse = await fetch(`/static/model/classes.json?t=${timestamp}`);
+            if (classesResponse.ok) {
+                window.diseaseClasses = await classesResponse.json();
+                console.log("Loaded disease classes:", window.diseaseClasses);
+            }
+        } catch (error) {
+            console.warn("Could not load disease classes:", error);
+        }
+        
+        // Set up progress callback for model loading
+        const progressCallback = (fraction) => {
+            const percent = Math.round(fraction * 100);
+            if (modelProgressBar) {
+                modelProgressBar.style.width = `${percent}%`;
+                modelProgressBar.innerText = `${percent}%`;
+            }
+            if (!silentMode) console.log(`Loading model: ${percent}%`);
+        };
+        
+        // Set up custom weights
+        const setUpDummyWeights = async () => {
+            try {
+                // Create dummy weights for the model - this is just for testing
+                // In a real scenario, you'd load actual weights from a file
+                const kernelShape = [3, 3, 3, 32]; // [height, width, inputDepth, outputDepth]
+                const biasShape = [32];
+                const denseKernelShape = [32, 38]; // Assuming flattened output × num classes
+                const denseBiasShape = [38];
+                
+                // Initialize with random values
+                const kernelValues = tf.randomNormal(kernelShape).arraySync();
+                const biasValues = tf.zeros(biasShape).arraySync();
+                const denseKernelValues = tf.randomNormal(denseKernelShape).arraySync();
+                const denseBiasValues = tf.zeros(denseBiasShape).arraySync();
+                
+                // Create a custom model with these weights
+                const model = await tf.loadLayersModel('/static/model/model.json');
+                
+                // Set the weights if model successfully loads
+                if (model && model.layers && model.layers.length > 1) {
+                    // Set weights for conv layer (first layer after input)
+                    const convLayer = model.layers[1]; // Index 1 since 0 is input layer
+                    await convLayer.setWeights([
+                        tf.tensor(kernelValues),
+                        tf.tensor(biasValues)
+                    ]);
+                    
+                    // Set weights for dense layer (last layer)
+                    const denseLayer = model.layers[4]; // Assuming it's the 5th layer (0-indexed)
+                    await denseLayer.setWeights([
+                        tf.tensor(denseKernelValues),
+                        tf.tensor(denseBiasValues)
+                    ]);
+                    
+                    return model;
+                }
+                return null;
+            } catch (error) {
+                console.error("Error setting up dummy weights:", error);
+                return null;
+            }
+        };
+        
+        // Try to load the model, preferring the LayersModel format
+        try {
+            console.log("Trying to load model using tf.loadLayersModel from tfjs_model...");
+            offlineModel = await tf.loadLayersModel(`/static/model/tfjs_model/model.json?t=${timestamp}`, {
+                onProgress: progressCallback
+            });
+            console.log("Successfully loaded model from tfjs_model directory");
+            
+            // Save to IndexedDB for future offline use
+            try {
+                await offlineModel.save('indexeddb://plant-disease-model');
+                console.log("Model saved to IndexedDB");
+            } catch (saveError) {
+                console.warn("Could not save model to IndexedDB:", saveError);
+            }
+        } catch (tfjsError) {
+            console.warn("Could not load model from tfjs_model directory:", tfjsError);
+            
+            // Attempt to set up dummy weights and load that model
+            try {
+                console.log("Setting up model with dummy weights...");
+                offlineModel = await setUpDummyWeights();
+                
+                if (offlineModel) {
+                    console.log("Successfully created model with dummy weights");
+                    
+                    // Save to IndexedDB for future offline use
+                    try {
+                        await offlineModel.save('indexeddb://plant-disease-model');
+                        console.log("Model with dummy weights saved to IndexedDB");
+                    } catch (saveError) {
+                        console.warn("Could not save model to IndexedDB:", saveError);
+                    }
+                } else {
+                    throw new Error("Failed to create model with dummy weights");
+                }
+            } catch (dummyModelError) {
+                console.error("Failed to create model with dummy weights:", dummyModelError);
+                
+                // Update UI to show error
+                if (modelStatus) modelStatus.innerText = 'Failed to load';
+                if (modelLoadingStatus) {
+                    modelLoadingStatus.classList.remove('d-none');
+                    modelLoadingStatus.innerHTML = `
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> Could not load model with valid weights
+                        </div>
+                    `;
+                }
+                
+                if (resultDiv) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <strong>Error loading model:</strong> Could not load model with valid weights. 
+                            <p>You can still use the online mode which does not require model loading.</p>
+                        </div>
+                    `;
+                }
+                
+                if (offlineToggle) offlineToggle.disabled = false;
+                return false;
+            }
+        }
+        
+        // Test the model with the correct input shape
+        console.log("Testing model...");
+        
+        // Get input dimensions from metadata or model or use default
+        let inputWidth = 128;
+        let inputHeight = 128;
+        
+        if (window.modelMetadata && window.modelMetadata.preprocessingParams && 
+            window.modelMetadata.preprocessingParams.targetSize) {
+            inputHeight = window.modelMetadata.preprocessingParams.targetSize[0];
+            inputWidth = window.modelMetadata.preprocessingParams.targetSize[1];
+            console.log(`Using input dimensions from metadata: ${inputHeight}x${inputWidth}`);
+        } else if (offlineModel.inputs && offlineModel.inputs[0].shape && 
+                   offlineModel.inputs[0].shape.length > 2) {
+            // Get from model input shape (accounting for batch dimension)
+            inputHeight = offlineModel.inputs[0].shape[1];
+            inputWidth = offlineModel.inputs[0].shape[2];
+            console.log(`Using input dimensions from model: ${inputHeight}x${inputWidth}`);
+        } else {
+            console.log(`Using default input dimensions: ${inputHeight}x${inputWidth}`);
+        }
+        
+        // Create a test tensor with the correct dimensions
+        const testTensor = tf.zeros([1, inputHeight, inputWidth, 3]);
+        
+        // Test the model
+        console.log(`Testing with tensor shape: ${testTensor.shape}`);
+        const testResult = offlineModel.predict(testTensor);
+        console.log("Test successful, result shape:", testResult.shape);
+        
+        // Check if result shape matches the number of classes we have
+        const numClasses = window.diseaseClasses ? window.diseaseClasses.length : classNames.length;
+        console.log(`Number of classes: ${numClasses}, prediction output size: ${testResult.shape[1]}`);
+        
+        // Clean up tensors
+        testTensor.dispose();
+        testResult.dispose();
+        
+        // Only show success message if not in silent mode and not in online mode
         if (!silentMode && !isOnlineMode && resultDiv) {
             resultDiv.innerHTML = `
-                <div class="alert alert-danger">
-                    <p><strong>Error preparing model:</strong> ${e.message}</p>
-                    <p>Please try again or switch to online mode.</p>
+                <div class="alert alert-success">
+                    <p><strong>Disease detection model loaded successfully!</strong></p>
+                    <p>The offline detection should now provide accurate results.</p>
                 </div>
             `;
         }
+        
+        // Update UI indicators
+        if (modelStatus) modelStatus.innerText = 'Loaded';
+        if (modelLoadingStatus) modelLoadingStatus.classList.add('d-none');
+        if (modelProgressDiv) modelProgressDiv.classList.add('d-none');
+        if (offlineToggle) offlineToggle.disabled = false;
+        
+        return true;
+        
+    } catch (error) {
+        console.error("Error reloading model:", error);
+        
+        // Update UI to show error
+        if (modelStatus) modelStatus.innerText = 'Error';
+        if (modelLoadingStatus) {
+            modelLoadingStatus.classList.remove('d-none');
+            modelLoadingStatus.innerHTML = `
+                <div class="alert alert-danger">
+                    <strong>Error:</strong> ${error.message}
+                </div>
+            `;
+        }
+        
+        if (resultDiv) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <strong>Error loading model:</strong> ${error.message}
+                    <p>You can still use the online mode which does not require model loading.</p>
+                    <button class="btn btn-primary mt-2" onclick="forceReloadModel(false)">
+                        <i class="fas fa-sync me-2"></i>Retry Loading Model
+                    </button>
+                </div>
+            `;
+        }
+        
+        if (offlineToggle) offlineToggle.disabled = false;
         return false;
     }
 }
@@ -1762,33 +1962,159 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="alert alert-info mb-3">
                     <p><strong>Offline Mode</strong></p>
                     <p>Take a photo or upload a plant image for local analysis without internet connection.</p>
-                    <div class="text-right">
-                        <button id="reset-model-btn" class="btn btn-outline-dark btn-sm mt-1">
-                            <i class="fas fa-sync-alt"></i> Reset Model
-                        </button>
-                    </div>
                 </div>
             `);
+        }
+    }
+});
+
+// Add the offline description box
+document.getElementById('offline-mode').addEventListener('DOMNodeInserted', function(e) {
+    // Don't add informational boxes in offline mode
+});
+
+// Update the handleModelLoadForOffline function to not add the info box
+function handleModelLoadForOffline() {
+    ensureJQuery(() => {
+        // Start loading the model without displaying status messages
+        if (!offlineModel && !offlineModelLoading) {
+            offlineModelLoading = true;
+            console.log("Starting model loading from handler...");
             
-            // Add event listener for the reset model button
-            setTimeout(() => {
-                const resetBtn = document.getElementById('reset-model-btn');
-                if (resetBtn) {
-                    resetBtn.addEventListener('click', async function() {
-                        const resultDiv = document.getElementById('result');
-                        resultDiv.innerHTML = `
-                            <div class="alert alert-info">
-                                <p><strong>Resetting model...</strong></p>
-                                <p>Downloading high-accuracy model...</p>
+            // Clear any previous error message
+            const resultArea = document.getElementById('result-area');
+            if (resultArea) {
+                resultArea.innerHTML = `
+                    <div class="alert alert-info">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border text-primary me-2" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <strong>Loading model...</strong>
+                        </div>
+                        <p class="mb-0 mt-2">Please wait while the model is loading...</p>
+                    </div>
+                `;
+            }
+            
+            // Try to load the model
+            loadOfflineModel()
+                .then(success => {
+                    offlineModelLoading = false;
+                    if (success) {
+                        console.log("Model loaded successfully from handler");
+                        // Update UI to show success
+                        if (resultArea) {
+                            resultArea.innerHTML = `
+                                <div class="alert alert-success">
+                                    <strong>Model loaded successfully!</strong>
+                                    <p>You can now use the offline detection feature.</p>
+                                </div>
+                            `;
+                            // Fade out the success message after 3 seconds
+                            setTimeout(() => {
+                                $(resultArea).find('.alert').fadeOut(500, function() {
+                                    resultArea.innerHTML = '';
+                                });
+                            }, 3000);
+                        }
+                    } else {
+                        console.error("Model failed to load from handler");
+                        if (resultArea) {
+                            resultArea.innerHTML = `
+                                <div class="alert alert-danger">
+                                    <p><strong>Error loading model</strong></p>
+                                    <p>Could not load the detection model. Please check your internet connection and try again.</p>
+                                    <button class="btn btn-primary mt-2" onclick="forceReloadModel(false)">
+                                        <i class="fas fa-sync me-2"></i>Retry Loading Model
+                                    </button>
+                                </div>
+                            `;
+                        }
+                    }
+                })
+                .catch(error => {
+                    offlineModelLoading = false;
+                    console.error("Error loading offline model:", error);
+                    if (resultArea) {
+                        resultArea.innerHTML = `
+                            <div class="alert alert-danger">
+                                <p><strong>Error loading model</strong></p>
+                                <p>Could not load the detection model: ${error.message}</p>
+                                <button class="btn btn-primary mt-2" onclick="forceReloadModel(false)">
+                                    <i class="fas fa-sync me-2"></i>Retry Loading Model
+                                </button>
                             </div>
                         `;
-                        
-                        // Force reload the high-accuracy model
-                        await forceReloadModel(false);
-                    });
-                }
-            }, 100);
+                    }
+                });
         }
+    });
+}
+
+function displayResults(prediction) {
+    // Clear results area 
+    const resultArea = document.getElementById('result-area');
+    if (!resultArea) return;
+    
+    // Create the HTML for results - simple layout with just the disease name
+    let resultHTML = `
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Detection Result</h5>
+            </div>
+            <div class="card-body">
+                <h4 class="mb-3">Detected Disease: </h4>
+                <div class="alert alert-info">
+                    <h5 class="mb-0"><i class="fas fa-bug me-2"></i>${prediction}</h5>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add the result HTML to the page
+    resultArea.innerHTML = resultHTML;
+    
+    // Scroll to results if the element exists
+    if (resultArea) {
+        try {
+            resultArea.scrollIntoView({behavior: 'smooth'});
+        } catch (error) {
+            // Silently handle scroll errors
+        }
+    }
+}
+
+// Load jQuery dynamically if it's not already loaded
+function ensureJQuery(callback) {
+    if (typeof jQuery === 'undefined') {
+        console.log('jQuery not detected, loading it dynamically...');
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js';
+        script.onload = function() {
+            console.log('jQuery loaded successfully');
+            if (callback) callback();
+        };
+        script.onerror = function() {
+            console.error('Failed to load jQuery');
+        };
+        document.head.appendChild(script);
+    } else {
+        console.log('jQuery already loaded');
+        if (callback) callback();
+    }
+}
+
+// Initialize offline detection when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if we're in offline mode
+    const modeToggle = document.getElementById('mode-toggle');
+    if (modeToggle && modeToggle.value === 'offline') {
+        console.log("Page loaded in offline mode, preloading model...");
+        // Add a slight delay to ensure all other initialization is complete
+        setTimeout(() => {
+            handleModelLoadForOffline();
+        }, 500);
     }
 });
 

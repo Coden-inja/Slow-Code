@@ -5,10 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.gstatic.com https://translate.google.com https://translate.googleapis.com https://translate-pa.googleapis.com https://cdnjs.cloudflare.com https://apis.google.com https://*.firebaseio.com https://*.firebase.com https://*.firebaseauth.com https://identity.security.googleapis.com https://identitytoolkit.googleapis.com; connect-src 'self' https://translate.googleapis.com https://translate.google.com https://translate-pa.googleapis.com https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com wss://*.firebaseio.com https://firestore.googleapis.com; img-src 'self' data: blob: https://translate.googleapis.com https://translate.google.com https://fonts.gstatic.com https://www.gstatic.com https://*.googleapis.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://translate.googleapis.com https://www.gstatic.com https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; frame-src 'self' https://accounts.google.com https://apis.google.com;">
-    <title>Plant Disease Detection AI</title>
+    <title>AgroDx - Plant Disease Detection</title>
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <!-- jQuery (required for offline mode) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Google Translate API -->
     <script type="text/javascript">
         function googleTranslateElementInit() {
@@ -249,8 +254,8 @@
                             More
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#">About Us</a></li>
-                            <li><a class="dropdown-item" href="#">Contact</a></li>
+                            <li><a class="dropdown-item" href="/about">About Us</a></li>
+                            <li><a class="dropdown-item" href="#footer">Contact</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -462,72 +467,126 @@
 
                     <!-- Online Mode Forms -->
                     <div id="online-mode">
-                        <h3>Online Mode</h3>
-
-                        <h4>Image-Based Disease Detection</h4>
-                        <form action="/upload" method="POST" enctype="multipart/form-data" id="image-upload-form">
-                            <div class="mb-3">
-                                <label class="form-label">Take a photo or upload an image</label>
-                                <div class="d-flex flex-column gap-3">
-                                    <!-- Camera capture option -->
-                                    <div class="camera-option">
-                                        <button type="button" id="open-camera-online" class="btn btn-success w-100 mb-2">
-                                            <i class="fas fa-camera me-2"></i>Take Photo
-                                        </button>
-                                        <div id="camera-feed-container-online" class="d-none">
-                                            <video id="camera-feed-online" class="w-100 mb-2" autoplay playsinline></video>
-                                            <div class="d-flex justify-content-between mb-3">
-                                                <button type="button" id="capture-photo-online" class="btn btn-primary">
-                                                    <i class="fas fa-camera me-1"></i>Capture
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h4>Image-Based Disease Detection</h4>
+                                <div class="mb-3">
+                                    <label for="plant-type-online" class="form-label">Select Plant Type:</label>
+                                    <select id="plant-type-online" class="form-select mb-3">
+                                        <option value="any" selected>Any plant</option>
+                                        <option value="apple">Apple</option>
+                                        <option value="blueberry">Blueberry</option>
+                                        <option value="cherry">Cherry</option>
+                                        <option value="corn">Corn</option>
+                                        <option value="grape">Grape</option>
+                                        <option value="orange">Orange</option>
+                                        <option value="peach">Peach</option>
+                                        <option value="pepper">Pepper</option>
+                                        <option value="potato">Potato</option>
+                                        <option value="raspberry">Raspberry</option>
+                                        <option value="soybean">Soybean</option>
+                                        <option value="squash">Squash</option>
+                                        <option value="strawberry">Strawberry</option>
+                                        <option value="tomato">Tomato</option>
+                                    </select>
+                                </div>
+                                <form action="/upload" method="POST" enctype="multipart/form-data" id="image-upload-form">
+                                    <div class="mb-3">
+                                        <div class="d-flex flex-column gap-3">
+                                            <!-- Camera capture option -->
+                                            <div class="camera-option">
+                                                <button type="button" id="open-camera-online" class="btn btn-success w-100 mb-2">
+                                                    <i class="fas fa-camera me-2"></i>Take Photo
                                                 </button>
-                                                <button type="button" id="close-camera-online" class="btn btn-secondary">
-                                                    <i class="fas fa-times me-1"></i>Close
-                                                </button>
+                                                <div id="camera-feed-container-online" class="d-none">
+                                                    <video id="camera-feed-online" class="w-100 mb-2" autoplay playsinline></video>
+                                                    <div class="d-flex justify-content-between mb-3">
+                                                        <button type="button" id="capture-photo-online" class="btn btn-primary">
+                                                            <i class="fas fa-camera me-1"></i>Capture
+                                                        </button>
+                                                        <button type="button" id="close-camera-online" class="btn btn-secondary">
+                                                            <i class="fas fa-times me-1"></i>Close
+                                                        </button>
+                                                    </div>
+                                                    <canvas id="photo-canvas-online" class="d-none"></canvas>
+                                                </div>
                                             </div>
-                                            <canvas id="photo-canvas-online" class="d-none"></canvas>
+                                            
+                                            <!-- File upload option -->
+                                            <input type="file" name="file" class="form-control" id="image-input-online"
+                                                accept="image/*" required>
+                                            <div id="image-preview" class="mt-2">
+                                                <img id="preview-image" class="img-fluid" style="max-width: 300px;">
+                                            </div>
                                         </div>
                                     </div>
-                                    
-                                    <!-- Divider with text -->
-                                    <div class="text-center my-2">
-                                        <span class="text-muted">- OR -</span>
+                                    <div id="online-image-loading" class="d-none mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="spinner-border text-primary me-2" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <span>Diagnosing image...</span>
+                                        </div>
                                     </div>
-                                    
-                                    <!-- File upload option -->
-                                    <label for="image-input-online" class="form-label">Upload leaf photo on a white background</label>
-                                    <input type="file" name="file" class="form-control" id="image-input-online"
-                                        accept="image/*" required>
-                                    <div id="image-preview" class="mt-2" style="display: none;">
-                                        <img id="preview-image" class="img-fluid" style="max-width: 300px;">
-                                    </div>
-                                </div>
+                                    <button type="submit" class="btn btn-primary" id="detect-image-btn">Detect Disease</button>
+                                </form>
                             </div>
-                            <button type="submit" class="btn btn-primary">Detect Disease</button>
-                        </form>
+                        </div>
 
-                        <h4>Symptoms-Based Detection (LLM)</h4>
-                        <form action="/text-detection" method="POST" id="symptoms-form">
-                            <div class="input-group mb-3">
-                                <input type="text" name="text_input" id="symptoms-input" class="form-control"
-                                    placeholder="Describe plant symptoms (yellowing, spots, wilting, etc.)..." required>
-                                <button type="button" id="voice-input-btn" class="btn btn-secondary">
-                                    <i class="fas fa-microphone"></i>
-                                </button>
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h4>Symptoms-Based Detection (LLM)</h4>
+                                <form action="/text-detection" method="POST" id="symptoms-form">
+                                    <div class="input-group mb-3">
+                                        <input type="text" name="text_input" id="symptoms-input" class="form-control"
+                                            placeholder="Describe plant symptoms (yellowing, spots, wilting, etc.)..." required>
+                                        <button type="button" id="voice-input-btn" class="btn btn-secondary">
+                                            <i class="fas fa-microphone"></i>
+                                        </button>
+                                    </div>
+                                    <div id="voice-status" class="mb-2 text-muted" style="font-size: 0.9em; min-height: 24px;">
+                                    </div>
+                                    <div id="text-loading" class="d-none mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="spinner-border text-success me-2" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <span>Processing symptoms...</span>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-success" id="diagnose-text-btn">Get Diagnosis</button>
+                                </form>
                             </div>
-                            <div id="voice-status" class="mb-2 text-muted" style="font-size: 0.9em; min-height: 24px;">
-                            </div>
-                            <button type="submit" class="btn btn-success">Get Diagnosis</button>
-                        </form>
+                        </div>
                     </div>
 
                     <!-- Offline Mode (runs locally, without server connection) -->
                     <div id="offline-mode" style="display: none;">
-                        <h3 class="mb-3">Offline Plant Disease Detection</h3>
                         <div class="card mb-4">
                             <div class="card-body">
+                                <h4>Image-Based Disease Detection</h4>
+                                <div class="mb-3">
+                                    <label for="plant-type-offline" class="form-label">Select Plant Type:</label>
+                                    <select id="plant-type-offline" class="form-select mb-3">
+                                        <option value="any" selected>Any plant</option>
+                                        <option value="apple">Apple</option>
+                                        <option value="blueberry">Blueberry</option>
+                                        <option value="cherry">Cherry</option>
+                                        <option value="corn">Corn</option>
+                                        <option value="grape">Grape</option>
+                                        <option value="orange">Orange</option>
+                                        <option value="peach">Peach</option>
+                                        <option value="pepper">Pepper</option>
+                                        <option value="potato">Potato</option>
+                                        <option value="raspberry">Raspberry</option>
+                                        <option value="soybean">Soybean</option>
+                                        <option value="squash">Squash</option>
+                                        <option value="strawberry">Strawberry</option>
+                                        <option value="tomato">Tomato</option>
+                                    </select>
+                                </div>
                                 <form id="offline-form">
                                     <div class="mb-3">
-                                        <label class="form-label">Take a photo or upload an image</label>
                                         <div class="d-flex flex-column gap-3">
                                             <!-- Camera capture option -->
                                             <div class="camera-option">
@@ -548,14 +607,19 @@
                                                 </div>
                                             </div>
                                             
-                                            <!-- Divider with text -->
-                                            <div class="text-center my-2">
-                                                <span class="text-muted">- OR -</span>
-                                            </div>
-                                            
                                             <!-- File upload option -->
-                                            <label for="image-input" class="form-label">Upload an image of the plant</label>
                                             <input class="form-control" type="file" id="image-input" accept="image/*" required>
+                                            <div id="offline-image-preview" class="mt-2">
+                                                <img id="offline-preview-image" class="img-fluid" style="max-width: 300px;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="offline-loading" class="d-none mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="spinner-border text-primary me-2" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <span>Processing with offline model...</span>
                                         </div>
                                     </div>
                                     <button type="button" id="detect-offline" class="btn btn-primary">
@@ -564,9 +628,12 @@
                                 </form>
                             </div>
                         </div>
+                        
+                        <!-- Result Area for Offline Mode -->
+                        <div id="result-area" class="mt-4"></div>
                     </div>
-
-                    <!-- Result Display Area -->
+                    
+                    <!-- Result Display Area for Online Mode -->
                     <div id="result" class="mt-4"></div>
 
 
@@ -586,6 +653,29 @@
         </div>
     </section>
 
+    <!-- Dashboard Section (moved below tutorial section) -->
+    <div class="container-fluid dashboard-section py-5 my-4">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-7 mb-4 mb-lg-0">
+                    <h2 class="section-title mb-3">Track Your Plant Health</h2>
+                    <p class="lead mb-4">Our dashboard provides real-time insights into your plants' health. Access vital information including weather details, sensor data, and a field disease heatmap to make informed decisions</p>
+        
+                    <ul class="dashboard-features">
+                        <li><i class="fas fa-history"></i>View current weather conditions</li>
+                        <li><i class="fas fa-chart-line"></i>Monitor sensor data for optimal growth</li>
+                        <li><i class="fas fa-seedling"></i>Analyze field disease heatmap for proactive management</li>
+                    </ul>
+                    
+                </div>
+                <div class="col-lg-5 text-center text-lg-end">
+                    <button id="dashboardAccessBtn" class="btn btn-primary btn-lg dashboard-btn">
+                        <i class="fas fa-chart-line me-2"></i> Access Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- About Section -->
     <div class="container mt-5">
@@ -594,13 +684,13 @@
         <!-- Tabs Navigation -->
         <ul class="nav nav-tabs justify-content-center" id="aboutTabs">
             <li class="nav-item">
-                <a class="nav-link active" id="tab1-tab" data-bs-toggle="tab" href="#tab1">Early Detection</a>
+                <a class="nav-link active text-dark" id="tab1-tab" data-bs-toggle="tab" href="#tab1">Early Detection</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" id="tab2-tab" data-bs-toggle="tab" href="#tab2">Advanced Technology</a>
+                <a class="nav-link text-dark" id="tab2-tab" data-bs-toggle="tab" href="#tab2">Advanced Technology</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" id="tab3-tab" data-bs-toggle="tab" href="#tab3">Sustainable Farming</a>
+                <a class="nav-link text-dark" id="tab3-tab" data-bs-toggle="tab" href="#tab3">Sustainable Farming</a>
             </li>
         </ul>
 
@@ -679,30 +769,6 @@
                 </div>
             </div>
 
-        </div>
-    </div>
-
-    <!-- Dashboard Section -->
-    <div class="container-fluid dashboard-section py-5 my-4">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-lg-7 mb-4 mb-lg-0">
-                    <h2 class="section-title mb-3">Track Your Plant Health</h2>
-                    <p class="lead mb-4">Our dashboard provides real-time insights into your plants' health. Access vital information including weather details, sensor data, and a field disease heatmap to make informed decisions</p>
-        
-                    <ul class="dashboard-features">
-                        <li><i class="fas fa-history"></i>View current weather conditions</li>
-                        <li><i class="fas fa-chart-line"></i>Monitor sensor data for optimal growth</li>
-                        <li><i class="fas fa-seedling"></i>Analyze field disease heatmap for proactive management</li>
-                    </ul>
-                    
-                </div>
-                <div class="col-lg-5 text-center text-lg-end">
-                    <button id="dashboardAccessBtn" class="btn btn-primary btn-lg dashboard-btn">
-                        <i class="fas fa-chart-line me-2"></i> Access Dashboard
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -836,7 +902,7 @@
     </div>
 
     <!-- Footer Section -->
-    <footer class="footer">
+    <footer class="footer" id="footer">
         <div class="container">
             <div class="row">
 
@@ -852,18 +918,16 @@
                     <h4>Quick Links</h4>
                     <ul>
                         <li><a href="#">Home</a></li>
-                        <li><a href="#">Disease Library</a></li>
-                        <li><a href="#">Treatment Guide</a></li>
-                        <li><a href="#">FAQ</a></li>
-                        <li><a href="#">Contact</a></li>
+                        <li><a href="#tutorial">Treatment Guide</a></li>
+                        <li><a href="#faqAccordion">FAQ</a></li>
                     </ul>
                 </div>
 
                 <!-- Contact Info -->
                 <div class="col-lg-4 col-md-12 footer-contact">
                     <h4>Contact Us</h4>
-                    <p>Email: support@agrodx.com</p>
-                    <p>Phone: +91 98765 43210</p>
+                    <p>Email: agrodx.help@gmail.com</p>
+                    <p>Phone: +91 6204299438</p>
                     <div class="social-icons">
                         <a href="#"><i class="fab fa-facebook-f"></i></a>
                         <a href="#"><i class="fab fa-twitter"></i></a>
@@ -878,7 +942,7 @@
 
             <!-- Copyright -->
             <div class="text-center">
-                <p>&copy; 2023 AgroDx. All Rights Reserved.</p>
+                <p>&copy; 2025 AgroDx. All Rights Reserved.</p>
             </div>
         </div>
     </footer>
@@ -1652,6 +1716,87 @@
                         const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
                         loginModal.show();
                     }
+                });
+            }
+        });
+    </script>
+
+    <style>
+        /* Base Styling */
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Mobile margins for phone mode */
+        @media (max-width: 576px) {
+            .container {
+                padding-left: 20px !important;
+                padding-right: 20px !important;
+            }
+            
+            .tutorial-section, .dashboard-section, .footer {
+                padding-left: 20px !important;
+                padding-right: 20px !important;
+            }
+            
+            .carousel-caption {
+                padding-left: 15px !important;
+                padding-right: 15px !important;
+            }
+        }
+
+        /* Hero Carousel */
+        .carousel-item {
+            height: 70vh;
+            min-height: 400px;
+            background: no-repeat center center;
+            background-size: cover;
+            position: relative;
+        }
+    </style>
+
+    <script>
+        // Add loading indicators when forms are submitted
+        document.addEventListener('DOMContentLoaded', function() {
+            // Image upload form
+            const imageForm = document.getElementById('image-upload-form');
+            const onlineImageLoading = document.getElementById('online-image-loading');
+            const detectImageBtn = document.getElementById('detect-image-btn');
+            
+            if (imageForm && onlineImageLoading && detectImageBtn) {
+                imageForm.addEventListener('submit', function() {
+                    onlineImageLoading.classList.remove('d-none');
+                    detectImageBtn.disabled = true;
+                });
+            }
+            
+            // Text symptoms form
+            const symptomsForm = document.getElementById('symptoms-form');
+            const textLoading = document.getElementById('text-loading');
+            const diagnoseTextBtn = document.getElementById('diagnose-text-btn');
+            
+            if (symptomsForm && textLoading && diagnoseTextBtn) {
+                symptomsForm.addEventListener('submit', function() {
+                    textLoading.classList.remove('d-none');
+                    diagnoseTextBtn.disabled = true;
+                });
+            }
+            
+            // Offline detection
+            const detectOfflineBtn = document.getElementById('detect-offline');
+            const offlineLoading = document.getElementById('offline-loading');
+            
+            if (detectOfflineBtn && offlineLoading) {
+                detectOfflineBtn.addEventListener('click', function() {
+                    offlineLoading.classList.remove('d-none');
+                    detectOfflineBtn.disabled = true;
+                    // Re-enable after 10 seconds in case of error
+                    setTimeout(() => {
+                        if (offlineLoading.classList.contains('d-none') === false) {
+                            offlineLoading.classList.add('d-none');
+                            detectOfflineBtn.disabled = false;
+                        }
+                    }, 10000);
                 });
             }
         });
